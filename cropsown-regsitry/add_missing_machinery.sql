@@ -1,0 +1,9 @@
+INSERT INTO g2p_attribute_values (value_id, attribute_id, value_code, value_display, sort_order) VALUES
+('MACHINERY_COMBINER', 'MACHINERY', 'COMBINER', 'Combiner', 12),
+('MACHINERY_HARVESTER', 'MACHINERY', 'HARVESTER', 'Harvester', 13),
+('MACHINERY_MAIZE_SHELLER', 'MACHINERY', 'MAIZE_SHELLER', 'Maize sheller', 14),
+('MACHINERY_MULTI_CROP_TRASHER', 'MACHINERY', 'MULTI_CROP_TRASHER', 'Multi-Crop Trasher', 15),
+('MACHINERY_OTHER', 'MACHINERY', 'OTHER', 'Other', 16),
+('MACHINERY_PLANTER', 'MACHINERY', 'PLANTER', 'Planter', 17),
+('MACHINERY_RICE_POLISHER', 'MACHINERY', 'RICE_POLISHER', 'Rice polisher', 18),
+('MACHINERY_TRACTOR', 'MACHINERY', 'TRACTOR', 'Tractor', 19);

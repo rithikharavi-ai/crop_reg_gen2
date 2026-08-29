@@ -1,0 +1,10 @@
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 10 WHERE section_id = 'cropsown_intake_record_section_01';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 20 WHERE section_id = 'cropsown_cropsown_location_section_03';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 30 WHERE section_id = 'cropsown_cultivation_details_section_01';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 40 WHERE section_id = 'cropsown_cultivation_cluster_details_section_01';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 50 WHERE section_id = 'cropsown_planning_details_section_01';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 60 WHERE section_id = 'cropsown_cluster_details_section_01';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 70 WHERE section_id = 'cropsown_sowing_details_section_01';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 80 WHERE section_id = 'cropsown_production_details_section_01';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 90 WHERE section_id = 'cropsown_harvest_details_section_01';
+UPDATE g2p_intake_form_ui_tab_sections SET section_order = 100 WHERE section_id = 'cropsown_infestation_details_section_01';

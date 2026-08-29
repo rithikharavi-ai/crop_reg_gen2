@@ -1,0 +1,111 @@
+# Crop Sown Registry
+
+An installable **Crop Sown Registry** built as a thin extension of the OpenG2P
+[registry platform](https://github.com/OpenG2P/registry-platform), following the
+same inverted build model as the
+[Farmer Registry](https://github.com/OpenG2P/farmer-registry): the platform
+publishes the runnable base images and the `openg2p-registry` Helm chart; this
+repo adds **only** the crop sown domain on top.
+
+The domain is ported from the Odoo module `g2p_crop_registry` (`g2p.crop.registry`
+and its planning / cultivation / sowing / harvesting lines) onto the platform's
+register model.
+
+## What this repo owns
+
+| Path | Purpose |
+|---|---|
+| `cropsown-extension/` | The crop sown domain package — models, schemas, services, seed metadata (registers, AWE policy, DCI templates) |
+| `dashboard-ui/` | The Crop Sown Registry analytics dashboard (the view behind the portal's Dashboard button) |
+| `docker/` | Thin Dockerfiles (`FROM openg2p/openg2p-registry-*` + `pip install cropsown-extension`) selected at runtime by `REGISTRY_EXTENSION_MODULE` (Option C). `docker/staff-ui/` also injects the Dashboard header button; `docker/dashboard-ui/` builds the analytics app. |
+| `helm/openg2p-cropsown-registry/` | A thin wrapper chart: pins `openg2p-registry` as a dependency and supplies the crop sown values overlay (no templates) |
+| `docker-compose.yml`, `local/` | Docker Compose stack for running the registry on a laptop (`local/` holds its env file and the mock master-data catalog API) |
+| `test/sanity/` | The crop sown **field-specific** sanity tests (Set 2); the harness + generic tests are inherited from the platform sanity image |
+
+## Registers
+
+Modelled on the **CROP SOWN REGISTRY ERD UPDATED** diagram. The crop sown record
+is the hub: every crop line links directly to it. Land is not a register of its
+own — a crop sown record covers exactly one plot, whose attributes and geometry
+sit flat on the record.
+
+```
+CropSown                     farmer identifiers, the plot (land_uuid/land_id, ownership, soil fertility,
+                             area, geo), status, production year, lifecycle stage
+├── Planning                 season, crop, planned area/seed/fertilizer, expected yield
+├── Cultivation              land preparation, actual planted date/area/seed/fertilizer
+├── Sowing                   sowing status, area sown, sowing date, seed type, machinery
+├── Production               growth stage, area under production, actual yield, yield per ha
+├── Harvest                  maturity, harvest date, area/quantity harvested, loss, stored, sold
+├── Infestation              growth stage, pest/weed/disease, severity, damage, action taken
+└── Cluster                  cluster name/status, agro-ecological zone, area, smallholders
+```
+
+Neither land nor farmers are registers here. The plot's `land_uuid` (generated)
+stays the key every crop line references, but it now names the plot described by
+its parent crop sown record rather than a row in a separate land register.
+
+Farmers are **not** a register here: the crop sown record carries their
+identifiers (`farmer_uuid`, `farmer_id`, `fayda_fan_id`, `farmer_name`) and
+mirrors the Fayda FAN into `link_foundational_id`, because this system is not the
+system of record for farmers.
+
+Each register has a `G2PRegister*`, a `G2PRegisterHistory*` and a
+`G2PIntakeForm*` model, a matching pydantic schema trio, and a domain service
+that validates the domain attributes and builds `search_text` / `record_name`.
+Every field, section and tab carries a human-readable label. Catalogs and lookup
+tables from the ERD are seeded as attribute lookups — see
+[cropsown-extension/README.md](cropsown-extension/README.md) for the full mapping.
+
+## Documentation
+
+- [The Record Photo Chain](docs/record-photo-chain.md) — how record photos
+  reach the browser, and the five places that chain breaks. Registry-agnostic;
+  useful to any OpenG2P registry wiring up images.
+
+## Run it locally
+
+```bash
+docker compose --env-file local/.env up -d --build
+```
+
+Then open the **Staff Portal at http://portal.localtest.me:3020** and log in with
+`admin` / `admin`. The header's **Dashboard** button opens the Crop Sown Registry
+analytics view at http://dashboard.localtest.me:3021 (its Back button returns you
+to the portal page you left). The dashboard reads this stack's registry database
+directly, so it shows the records the portal holds and nothing else — a registry
+with no crop sown records renders empty panels. See `dashboard-ui/README.md`.
+
+The stack runs the whole login chain — Keycloak (realm `staff`), the IAM staff
+API and master data — alongside the registry, so this is a real OIDC login and
+the registry resolves the user's roles into permissions exactly as a deployment
+does. Staff API on http://localhost:8001/docs, Partner API on
+http://localhost:8002/docs, mock crop catalogue on http://localhost:8010/docs.
+See [local/README.md](local/README.md) for the full service list and how the
+pieces fit together.
+
+## Deploy
+
+```bash
+helm repo add openg2p https://openg2p.github.io/openg2p-helm
+helm dependency build ./helm/openg2p-cropsown-registry
+helm install cropsown-registry ./helm/openg2p-cropsown-registry \
+  --set global.registryHostname=cropsown-registry.example.org
+```
+
+Set `registry.sanity.runE2e=true` to run the end-to-end sanity suite after install.
+
+## Version pinning
+
+The `openg2p-registry` base image tag (`RP_VERSION` in each Dockerfile) and the
+chart dependency version in `helm/openg2p-cropsown-registry/Chart.yaml` are
+**hardcoded and pinned together**. The crop sown images and the wrapper chart are
+versioned in lockstep by CI (one version per commit).
+
+To see which version it would pick, run `./scripts/bump-rp-version.sh -n` (dry-run,
+writes nothing); `-h` prints help. To apply, run `./scripts/bump-rp-version.sh`
+(latest published version) or `./scripts/bump-rp-version.sh <version>` — it updates
+the Dockerfiles and the chart dependency together, so they can never drift. A CI
+check (`test/test_rp_pin_lockstep.py`) fails the build if they ever do.
+
+See the deployment & extension docs at [docs.openg2p.org](https://docs.openg2p.org).
