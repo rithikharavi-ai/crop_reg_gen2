@@ -1,5 +1,6 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from pydantic import root_validator
 
 from openg2p_registry_core.schemas import (
     G2PRegisterBaseSchema,
@@ -68,6 +69,10 @@ class G2PSchemaPlanning:
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
 
+    has_cluster_farming: Optional[bool] = None
+    cluster_details: Optional[List[Dict[str, Any]]] = None
+
+
 
 
 class G2PRegisterSchemaPlanning(G2PRegisterBaseSchema, G2PSchemaPlanning):
@@ -76,6 +81,14 @@ class G2PRegisterSchemaPlanning(G2PRegisterBaseSchema, G2PSchemaPlanning):
     Inherits fields from G2PRegisterBaseSchema.
     Attributes inherited from G2PSchemaPlanning are specific to the Crop Planning domain.
     """
+    @root_validator(pre=False, skip_on_failure=True)
+    def validate_planned_area(cls, values):
+        land_area = values.get('land_area')
+        planned_area = values.get('planned_area')
+        if land_area is not None and planned_area is not None:
+            if planned_area > land_area:
+                raise ValueError("Planned Crop Area cannot be greater than Total Land Area")
+        return values
 
 
 class G2PRegisterHistorySchemaPlanning(G2PRegisterHistorySchema, G2PSchemaPlanning):
@@ -91,3 +104,11 @@ class G2PIntakeFormSchemaPlanning(G2PIntakeFormSchemaBase, G2PRegisterBaseSchema
     Inherits fields from G2PRegisterBaseSchema.
     Attributes inherited from G2PSchemaPlanning are specific to the Crop Planning domain and are included in the intake form schema for data collection.
     """
+    @root_validator(pre=False, skip_on_failure=True)
+    def validate_planned_area(cls, values):
+        land_area = values.get('land_area')
+        planned_area = values.get('planned_area')
+        if land_area is not None and planned_area is not None:
+            if planned_area > land_area:
+                raise ValueError("Planned Crop Area cannot be greater than Total Land Area")
+        return values

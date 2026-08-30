@@ -12,6 +12,8 @@ from openg2p_registry_core.models.g2p_intake_form import G2PIntakeForm
 from openg2p_registry_core.models import G2PRegister, G2PRegisterHistory
 from sqlalchemy import Boolean, Date, Integer, Numeric, String, select
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import JSONB
+from typing import Any
 
 from ..services import G2PRegisterDomainServicePlanning
 from .enums import CroppingSystemEnum, SeedClassEnum, SeedSourceEnum
@@ -73,6 +75,10 @@ class G2PPlanning:
     da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
+
+    has_cluster_farming: Mapped[bool] = mapped_column(Boolean, nullable=True)
+    cluster_details: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+
 
 # All Register classes should have the prefix G2PRegister
 class G2PRegisterPlanning(G2PRegister, G2PPlanning):

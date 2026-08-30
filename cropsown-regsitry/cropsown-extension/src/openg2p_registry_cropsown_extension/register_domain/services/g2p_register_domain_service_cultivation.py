@@ -3,7 +3,12 @@ from datetime import date
 
 from openg2p_registry_core.services import G2PRegisterDomainService
 
-from .domain_compute_utils import compute_fertilizer_sacks, compute_season_parts, is_date_in_season
+from .domain_compute_utils import (
+    compute_fertilizer_sacks,
+    compute_season_parts,
+    is_date_in_season,
+    compute_ec_date
+)
 
 from .domain_validation_utils import as_float, parse_date, validation_error
 
@@ -18,6 +23,7 @@ class G2PRegisterDomainServiceCultivation(G2PRegisterDomainService):
             self._validate_date_in_season(record, "actual_planted_date")
             self._validate_actual_planted_date(record)
             self._validate_actual_crop_area(record)
+            compute_ec_date(record, "actual_planted_date", "actual_planted_date_ec")
 
     def _validate_actual_planted_date(self, record: dict) -> None:
         planted_date = parse_date(record.get("actual_planted_date"))

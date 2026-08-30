@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 
 from openg2p_registry_core.schemas import (
     G2PRegisterBaseSchema,
@@ -26,7 +26,8 @@ class G2PSchemaInfestation:
     sub_kebele: Optional[str] = None
     commodity: Optional[str] = None
     growth_stage: Optional[GrowthStageEnum] = None
-    infestation_type: Optional[str] = None
+    cluster_status: Optional[List[str]] = None
+    infestation_type: Optional[List[str]] = None
     pest_name: Optional[str] = None
     weed_name: Optional[str] = None
     disease_name: Optional[str] = None

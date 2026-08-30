@@ -20,17 +20,28 @@ _MOBILE_NUMBER_PATTERN = re.compile(r"^\+?[0-9][0-9\- ]{5,19}$")
 
 # Farmer ids are issued by the farmer registry as FR- followed by ten digits.
 _FARMER_ID_PATTERN = re.compile(r"^FR-[0-9]{10}$")
+_FAYDA_FAN_ID_PATTERN = re.compile(r"^ *FAN-[0-9]{16} *$")
 
 class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
     async def validate_domain_attributes(self, records: list[dict]):
         for record in records:
             self._validate_production_year(record)
             self._validate_farmer_id(record)
+            self._validate_fayda_fan_id(record)
 
     def _validate_production_year(self, record: dict) -> None:
         year = as_int(record.get("production_year"))
         if year is not None and year > date.today().year:
             validation_error("production_year must not be in the future")
+
+    def _validate_fayda_fan_id(self, record: dict) -> None:
+        value = record.get("fayda_fan_id")
+        if value is None or str(value).strip() == "":
+            return
+        if not _FAYDA_FAN_ID_PATTERN.match(str(value).strip()):
+            validation_error(
+                f"fayda_fan_id must be FAN- followed by 16 digits (got '{value}')"
+            )
 
     def _validate_farmer_id(self, record: dict) -> None:
         """Farmer ids come from the farmer registry as FR- plus ten digits."""

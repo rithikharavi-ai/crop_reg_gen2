@@ -107,3 +107,24 @@ def is_date_in_season(test_date, start_month, start_day, end_month, end_day) -> 
     if (sm, sd) <= (em, ed):
         return (sm, sd) <= (tm, td) <= (em, ed)
     return (tm, td) >= (sm, sd) or (tm, td) <= (em, ed)
+
+
+def compute_ec_date(record: dict, gc_field: str, ec_field: str) -> None:
+    """Computes the Ethiopian Calendar (EC) date from the Gregorian Calendar (GC) date."""
+    from .calendar_utils import to_ethiopian
+    from .domain_validation_utils import parse_date
+    import logging
+
+    _logger = logging.getLogger("g2p-register-domain-service")
+    gc_val = record.get(gc_field)
+
+    # Only calculate if GC date exists and EC date does not exist (or just overwrite EC with GC's calc)
+    if gc_val:
+        gc_date = parse_date(gc_val)
+        if gc_date is not None:
+            try:
+                eth_tuple = to_ethiopian(gc_date.year, gc_date.month, gc_date.day)
+                # Store as YYYY-MM-DD
+                record[ec_field] = f"{eth_tuple[2]:04d}-{eth_tuple[1]:02d}-{eth_tuple[0]:02d}"
+            except Exception as e:
+                _logger.warning(f"Could not convert GC date {gc_date} to EC for field {ec_field}: {e}")

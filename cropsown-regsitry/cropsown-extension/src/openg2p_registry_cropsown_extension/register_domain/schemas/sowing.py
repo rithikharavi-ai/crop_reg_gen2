@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 
 from openg2p_registry_core.schemas import (
     G2PRegisterBaseSchema,
@@ -12,6 +12,11 @@ from ..models.enums import SeedClassEnum, SowingStatusEnum
 class G2PSchemaSowing:
 
     is_plot_not_registered: Optional[bool] = None
+    cluster_id: Optional[str] = None
+    cluster_name: Optional[str] = None
+    agro_ecological_zone: Optional[str] = None
+    cluster_area_hectare: Optional[float] = None
+
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None
     sowing_date_ec: Optional[str] = None
@@ -38,7 +43,10 @@ class G2PSchemaSowing:
     fertilizer_type: Optional[str] = None
     fertilizer_qty: Optional[float] = None
     cultivated_by: Optional[str] = None
-    cluster_status: Optional[str] = None
+    cluster_status: Optional[List[str]] = None
+    cluster_season: Optional[str] = None
+    cluster_sowing_status: Optional[SowingStatusEnum] = None
+    cluster_area_sown: Optional[float] = None
     has_pest_disease: Optional[bool] = None
     da_name: Optional[str] = None
     da_mobile_number: Optional[str] = None

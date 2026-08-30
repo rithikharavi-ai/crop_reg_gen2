@@ -3,7 +3,12 @@ from datetime import date
 
 from openg2p_registry_core.services import G2PRegisterDomainService
 
-from .domain_compute_utils import compute_fertilizer_sacks, compute_season_parts, is_date_in_season
+from .domain_compute_utils import (
+    compute_fertilizer_sacks,
+    compute_season_parts,
+    is_date_in_season,
+    compute_ec_date
+)
 
 from .domain_validation_utils import as_float, parse_date, validation_error
 
@@ -18,6 +23,7 @@ class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
             self._validate_date_in_season(record, "planned_date")
             self._validate_planned_area(record)
             self._validate_planned_date(record)
+            compute_ec_date(record, "planned_date", "planned_date_ec")
         self._validate_no_duplicate_commodity_season(records)
 
     def _validate_planned_area(self, record: dict) -> None:

@@ -25,6 +25,7 @@ class G2PSchemaHarvest:
     unit: Optional[str] = None
     sub_kebele: Optional[str] = None
     commodity: Optional[str] = None
+    cluster_status: Optional[list[str]] = None
     crop_maturity_status: Optional[CropMaturityStatusEnum] = None
     harvest_date: Optional[date] = None
     area_harvested: Optional[float] = None
@@ -34,6 +35,20 @@ class G2PSchemaHarvest:
     qty_sold: Optional[float] = None
     yield_per_ha: Optional[float] = None
     harvested_by: Optional[str] = None
+
+    cluster_crop_maturity_status: Optional[CropMaturityStatusEnum] = None
+    cluster_harvest_date: Optional[date] = None
+    cluster_area_harvested: Optional[float] = None
+    cluster_qty_harvested: Optional[float] = None
+    cluster_post_harvest_loss_pct: Optional[float] = None
+    cluster_qty_stored: Optional[float] = None
+    cluster_qty_sold: Optional[float] = None
+
+    yield_kg_ha: Optional[float] = None
+    yield_performance_pct: Optional[float] = None
+    fertilizer_efficiency: Optional[float] = None
+    land_utilization_rate: Optional[float] = None
+    seed_productivity: Optional[float] = None
     da_name: Optional[str] = None
     da_mobile_number: Optional[str] = None
     supervisor_name: Optional[str] = None

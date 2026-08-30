@@ -916,5 +916,9 @@
   "woreda_name": "Woreda",
   "yield_per_ha": "Yield per Hectare (quintal/ha)",
   "zone": "Zone",
-  "zone_name": "Zone"
+  "zone_name": "Zone",
+  "common.selectAll": "Select All",
+  "common.deselectAll": "Deselect All",
+  "common.clearAll": "Clear All",
+  "common.selectedCount": "{0} selected"
 }

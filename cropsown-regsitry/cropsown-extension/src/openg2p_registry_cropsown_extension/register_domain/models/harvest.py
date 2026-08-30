@@ -10,7 +10,7 @@ from datetime import date
 
 from openg2p_registry_core.models.g2p_intake_form import G2PIntakeForm
 from openg2p_registry_core.models import G2PRegister, G2PRegisterHistory
-from sqlalchemy import Boolean, Date, Integer, Numeric, String, select
+from sqlalchemy import Boolean, Date, Integer, Numeric, String, select, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..services import G2PRegisterDomainServiceHarvest
@@ -31,6 +31,7 @@ class G2PHarvest:
     unit: Mapped[str] = mapped_column(String, nullable=True)                  # LandSizeUnitEnum
     sub_kebele: Mapped[str] = mapped_column(String, nullable=True)
     commodity: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (CROP_COMMODITY)
+    cluster_status: Mapped[list[str]] = mapped_column(JSON, nullable=True)
     crop_maturity_status: Mapped[CropMaturityStatusEnum] = mapped_column(String, nullable=True) # CropMaturityStatusEnum
     harvest_date: Mapped[str] = mapped_column(Date, nullable=True)
     area_harvested: Mapped[float] = mapped_column(Numeric, nullable=True)
@@ -40,6 +41,20 @@ class G2PHarvest:
     qty_sold: Mapped[float] = mapped_column(Numeric, nullable=True)
     yield_per_ha: Mapped[float] = mapped_column(Numeric, nullable=True)
     harvested_by: Mapped[str] = mapped_column(String, nullable=True)          # Attribute lookup (MACHINERY)
+
+    cluster_crop_maturity_status: Mapped[CropMaturityStatusEnum] = mapped_column(String, nullable=True)
+    cluster_harvest_date: Mapped[str] = mapped_column(Date, nullable=True)
+    cluster_area_harvested: Mapped[float] = mapped_column(Numeric, nullable=True)
+    cluster_qty_harvested: Mapped[float] = mapped_column(Numeric, nullable=True)
+    cluster_post_harvest_loss_pct: Mapped[float] = mapped_column(Numeric, nullable=True)
+    cluster_qty_stored: Mapped[float] = mapped_column(Numeric, nullable=True)
+    cluster_qty_sold: Mapped[float] = mapped_column(Numeric, nullable=True)
+
+    yield_kg_ha: Mapped[float] = mapped_column(Numeric, nullable=True)
+    yield_performance_pct: Mapped[float] = mapped_column(Numeric, nullable=True)
+    fertilizer_efficiency: Mapped[float] = mapped_column(Numeric, nullable=True)
+    land_utilization_rate: Mapped[float] = mapped_column(Numeric, nullable=True)
+    seed_productivity: Mapped[float] = mapped_column(Numeric, nullable=True)
 
     is_plot_not_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
     temporary_land_id: Mapped[str] = mapped_column(String, nullable=True)
