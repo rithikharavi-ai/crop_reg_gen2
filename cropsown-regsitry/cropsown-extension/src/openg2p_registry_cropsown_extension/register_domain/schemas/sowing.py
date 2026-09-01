@@ -17,11 +17,13 @@ class G2PSchemaSowing:
     agro_ecological_zone: Optional[str] = None
     cluster_area_hectare: Optional[float] = None
 
+    sowing_id: Optional[str] = None
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None
     sowing_date_ec: Optional[str] = None
     geo_tagged_photo_document_id: Optional[str] = None
     land_uuid: Optional[str] = None
+    sowing_id: Optional[str] = None
     land_id: Optional[str] = None
     is_land_registered: Optional[bool] = None
     ownership_type: Optional[str] = None

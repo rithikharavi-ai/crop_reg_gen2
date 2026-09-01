@@ -117,7 +117,7 @@ def compute_ec_date(record: dict, gc_field: str, ec_field: str) -> None:
 
     _logger = logging.getLogger("g2p-register-domain-service")
     gc_val = record.get(gc_field)
-
+    
     # Only calculate if GC date exists and EC date does not exist (or just overwrite EC with GC's calc)
     if gc_val:
         gc_date = parse_date(gc_val)

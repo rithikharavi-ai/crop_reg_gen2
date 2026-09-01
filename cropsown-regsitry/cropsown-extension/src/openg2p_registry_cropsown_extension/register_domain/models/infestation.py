@@ -10,14 +10,17 @@ from datetime import date
 
 from openg2p_registry_core.models.g2p_intake_form import G2PIntakeForm
 from openg2p_registry_core.models import G2PRegister, G2PRegisterHistory
-from sqlalchemy import Boolean, Date, Integer, Numeric, String, select, JSON
+from sqlalchemy import Boolean, Date, Integer, Numeric, String, select, event, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
+import datetime
 
 from ..services import G2PRegisterDomainServiceInfestation
 from .enums import GrowthStageEnum, SeverityLevelEnum
 
 
 class G2PInfestation:
+    infestation_id: Mapped[str] = mapped_column(String, nullable=True)
 
     land_uuid: Mapped[str] = mapped_column(String, nullable=True)
     # ── Plot: each line records the land it was worked on (Gen1 puts
@@ -32,11 +35,30 @@ class G2PInfestation:
     sub_kebele: Mapped[str] = mapped_column(String, nullable=True)
     commodity: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (CROP_COMMODITY)
     growth_stage: Mapped[GrowthStageEnum] = mapped_column(String, nullable=True) # GrowthStageEnum
-    cluster_status: Mapped[list[str]] = mapped_column(JSON, nullable=True)
-    infestation_type: Mapped[list[str]] = mapped_column(JSON, nullable=True)      # Attribute lookup (INFESTATION_TYPE)
+    cluster_status: Mapped[list[str]] = mapped_column(JSONB, nullable=True)
+    infestation_type: Mapped[list[str]] = mapped_column(JSONB, nullable=True)      # Attribute lookup (INFESTATION_TYPE)
     pest_name: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (PEST)
     weed_name: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (WEED)
     disease_name: Mapped[str] = mapped_column(String, nullable=True)          # Attribute lookup (CROP_DISEASE)
+    disease_type: Mapped[str] = mapped_column(String, nullable=True)
+    disease_control_method: Mapped[str] = mapped_column(String, nullable=True)
+    disease_frequency_of_application: Mapped[str] = mapped_column(String, nullable=True)
+    
+    pest_type: Mapped[str] = mapped_column(String, nullable=True)
+    pesticide_name: Mapped[str] = mapped_column(String, nullable=True)
+    pesticide_type: Mapped[str] = mapped_column(String, nullable=True)
+    pesticide_method: Mapped[str] = mapped_column(String, nullable=True)
+    pesticide_frequency: Mapped[str] = mapped_column(String, nullable=True)
+    
+    weed_type: Mapped[str] = mapped_column(String, nullable=True)
+    weed_control_method: Mapped[str] = mapped_column(String, nullable=True)
+    weedicide_name: Mapped[str] = mapped_column(String, nullable=True)
+    weedicide_type: Mapped[str] = mapped_column(String, nullable=True)
+    weedicide_frequency: Mapped[str] = mapped_column(String, nullable=True)
+    
+    fungicide_name: Mapped[str] = mapped_column(String, nullable=True)
+    fungicide_type: Mapped[str] = mapped_column(String, nullable=True)
+
     chemical_used: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (AGRO_CHEMICAL)
     severity_level: Mapped[SeverityLevelEnum] = mapped_column(String, nullable=True) # SeverityLevelEnum
     estimated_damage_pct: Mapped[float] = mapped_column(Numeric, nullable=True)
@@ -93,3 +115,26 @@ class G2PIntakeFormInfestation(G2PIntakeForm, G2PRegister, G2PInfestation):
     def get_record_name_fields(self) -> str:
         """Return infestation incident record_name from domain service implementation."""
         return G2PRegisterDomainServiceInfestation().construct_record_name(self.to_dict())
+
+def generate_infestation_id(mapper, connection, target):
+    if not getattr(target, 'infestation_id', None):
+        current_year = datetime.date.today().year
+        prefix = f"PI/{current_year}/"
+        
+        table = target.__table__
+        stmt = select(func.max(table.c.infestation_id)).where(table.c.infestation_id.like(f"{prefix}%"))
+        
+        result = connection.execute(stmt).scalar()
+        if result:
+            try:
+                last_seq = int(result.split("/")[-1])
+                new_seq = last_seq + 1
+            except ValueError:
+                new_seq = 1
+        else:
+            new_seq = 1
+            
+        target.infestation_id = f"{prefix}{new_seq:05d}"
+
+event.listen(G2PRegisterInfestation, 'before_insert', generate_infestation_id)
+event.listen(G2PIntakeFormInfestation, 'before_insert', generate_infestation_id)

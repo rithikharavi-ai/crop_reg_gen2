@@ -13,6 +13,7 @@ from ..models.enums import CroppingSystemEnum, SeedClassEnum, SeedSourceEnum
 class G2PSchemaPlanning:
 
     is_plot_not_registered: Optional[bool] = None
+    planning_id: Optional[str] = None
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None
     start_gc: Optional[date] = None
@@ -24,6 +25,7 @@ class G2PSchemaPlanning:
     planned_date_ec: Optional[str] = None
     planned_fertilizer_sack: Optional[float] = None
     land_uuid: Optional[str] = None
+    planning_id: Optional[str] = None
     land_id: Optional[str] = None
     is_land_registered: Optional[bool] = None
     ownership_type: Optional[str] = None

@@ -11,6 +11,7 @@ from ..models.enums import GrowthStageEnum, SeverityLevelEnum
 
 class G2PSchemaInfestation:
 
+    infestation_id: Optional[str] = None
     is_plot_not_registered: Optional[bool] = None
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None

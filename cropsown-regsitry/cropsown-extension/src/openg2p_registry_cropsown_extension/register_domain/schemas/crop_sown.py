@@ -11,11 +11,7 @@ from ..models.enums import LifecycleStageEnum
 import re
 from pydantic import field_validator
 
-def validate_fayda_fan_id(v: Optional[str]) -> Optional[str]:
-    if v is not None:
-        if not re.match(r"^FAN-\d{16}$", v):
-            raise ValueError("Fayda ID (FAN) must be in the format FAN- followed by 16 digits")
-    return v
+
 
 
 class G2PSchemaCropSown:
@@ -60,10 +56,7 @@ class G2PRegisterSchemaCropSown(G2PRegisterBaseSchema, G2PGeoSchema, G2PSchemaCr
     Attributes inherited from G2PSchemaCropSown are specific to the Crop Sown Record domain,
     and include the land attributes of the single plot the record covers.
     """
-    @field_validator("fayda_fan_id")
-    @classmethod
-    def validate_fayda(cls, v: Optional[str]) -> Optional[str]:
-        return validate_fayda_fan_id(v)
+
 
 
 class G2PRegisterHistorySchemaCropSown(G2PRegisterHistorySchema, G2PGeoHistorySchema, G2PSchemaCropSown):
@@ -71,10 +64,7 @@ class G2PRegisterHistorySchemaCropSown(G2PRegisterHistorySchema, G2PGeoHistorySc
     Schema for Crop Sown Record history.
     Inherits fields from G2PRegisterHistorySchema, G2PGeoHistorySchema.
     """
-    @field_validator("fayda_fan_id")
-    @classmethod
-    def validate_fayda(cls, v: Optional[str]) -> Optional[str]:
-        return validate_fayda_fan_id(v)
+
 
 
 class G2PIntakeFormSchemaCropSown(G2PIntakeFormSchemaBase, G2PRegisterBaseSchema, G2PGeoSchema, G2PSchemaCropSown):
@@ -83,7 +73,4 @@ class G2PIntakeFormSchemaCropSown(G2PIntakeFormSchemaBase, G2PRegisterBaseSchema
     Inherits fields from G2PRegisterBaseSchema, G2PGeoSchema, G2PGeoShapeSchema.
     Attributes inherited from G2PSchemaCropSown are specific to the Crop Sown Record domain and are included in the intake form schema for data collection.
     """
-    @field_validator("fayda_fan_id")
-    @classmethod
-    def validate_fayda(cls, v: Optional[str]) -> Optional[str]:
-        return validate_fayda_fan_id(v)
+

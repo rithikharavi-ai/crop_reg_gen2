@@ -12,10 +12,12 @@ from ..models.enums import CropMaturityStatusEnum
 class G2PSchemaHarvest:
 
     is_plot_not_registered: Optional[bool] = None
+    harvest_id: Optional[str] = None
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None
     harvest_date_ec: Optional[str] = None
     land_uuid: Optional[str] = None
+    harvest_id: Optional[str] = None
     land_id: Optional[str] = None
     is_land_registered: Optional[bool] = None
     ownership_type: Optional[str] = None

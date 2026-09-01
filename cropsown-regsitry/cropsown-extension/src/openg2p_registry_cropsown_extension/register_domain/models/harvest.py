@@ -10,7 +10,8 @@ from datetime import date
 
 from openg2p_registry_core.models.g2p_intake_form import G2PIntakeForm
 from openg2p_registry_core.models import G2PRegister, G2PRegisterHistory
-from sqlalchemy import Boolean, Date, Integer, Numeric, String, select, JSON
+from sqlalchemy import Boolean, Date, Integer, Numeric, String, select, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..services import G2PRegisterDomainServiceHarvest
@@ -31,7 +32,7 @@ class G2PHarvest:
     unit: Mapped[str] = mapped_column(String, nullable=True)                  # LandSizeUnitEnum
     sub_kebele: Mapped[str] = mapped_column(String, nullable=True)
     commodity: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (CROP_COMMODITY)
-    cluster_status: Mapped[list[str]] = mapped_column(JSON, nullable=True)
+    cluster_status: Mapped[list[str]] = mapped_column(JSONB, nullable=True)
     crop_maturity_status: Mapped[CropMaturityStatusEnum] = mapped_column(String, nullable=True) # CropMaturityStatusEnum
     harvest_date: Mapped[str] = mapped_column(Date, nullable=True)
     area_harvested: Mapped[float] = mapped_column(Numeric, nullable=True)

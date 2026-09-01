@@ -34,7 +34,8 @@ class G2PCropSown:
     farmer_id: Mapped[str] = mapped_column(String, nullable=True)
     fayda_fan_id: Mapped[str] = mapped_column(String, nullable=True)
     farmer_name: Mapped[str] = mapped_column(String, nullable=True)
-
+    # farmer_photo_upload: Mapped[str] = mapped_column(String, nullable=True)
+    record_image_document_id: Mapped[str] = mapped_column(String, nullable=True)
     # ── Address: the admin hierarchy, from the master-data catalog ────────────
     region: Mapped[str] = mapped_column(String, nullable=True)                # Attribute lookup (REGION)
     zone: Mapped[str] = mapped_column(String, nullable=True)                  # Attribute lookup (ZONE)

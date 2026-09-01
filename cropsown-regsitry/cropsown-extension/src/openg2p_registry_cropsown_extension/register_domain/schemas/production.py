@@ -12,12 +12,14 @@ from ..models.enums import GrowthStageEnum
 class G2PSchemaProduction:
 
     is_plot_not_registered: Optional[bool] = None
+    production_id: Optional[str] = None
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None
     actual_sowing_date: Optional[date] = None
     yield_performance_pct: Optional[float] = None
     geo_tagged_photo_document_id: Optional[str] = None
     land_uuid: Optional[str] = None
+    production_id: Optional[str] = None
     land_id: Optional[str] = None
     is_land_registered: Optional[bool] = None
     ownership_type: Optional[str] = None

@@ -10,7 +10,8 @@ from datetime import date
 
 from openg2p_registry_core.models.g2p_intake_form import G2PIntakeForm
 from openg2p_registry_core.models import G2PRegister, G2PRegisterHistory
-from sqlalchemy import Boolean, Date, Integer, Numeric, String, select, ARRAY, JSON
+from sqlalchemy import Boolean, Date, Integer, Numeric, String, select, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..services import G2PRegisterDomainServiceSowing
@@ -43,7 +44,7 @@ class G2PSowing:
     fertilizer_type: Mapped[str] = mapped_column(String, nullable=True)       # Attribute lookup (FERTILIZER_TYPE)
     fertilizer_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
     cultivated_by: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (MACHINERY)
-    cluster_status: Mapped[list[str]] = mapped_column(JSON, nullable=True)        # Attribute lookup (CLUSTER_STATUS)
+    cluster_status: Mapped[list[str]] = mapped_column(JSONB, nullable=True)        # Attribute lookup (CLUSTER_STATUS)
     has_pest_disease: Mapped[bool] = mapped_column(Boolean, nullable=True)
 
     is_plot_not_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
@@ -51,6 +52,10 @@ class G2PSowing:
     cluster_name: Mapped[str] = mapped_column(String, nullable=True)
     agro_ecological_zone: Mapped[str] = mapped_column(String, nullable=True)
     cluster_area_hectare: Mapped[float] = mapped_column(Numeric, nullable=True)
+    cluster_season: Mapped[str] = mapped_column(String, nullable=True)
+    cluster_area_sown: Mapped[float] = mapped_column(Numeric, nullable=True)
+    cluster_sowing_status: Mapped[str] = mapped_column(String, nullable=True)
+    cluster_has_pest_disease: Mapped[str] = mapped_column(String, nullable=True)
 
     temporary_land_id: Mapped[str] = mapped_column(String, nullable=True)
     sync_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
