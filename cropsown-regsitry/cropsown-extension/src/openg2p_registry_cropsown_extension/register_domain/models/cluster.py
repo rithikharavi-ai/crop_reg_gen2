@@ -9,7 +9,8 @@ from datetime import date
 
 from openg2p_registry_core.models.g2p_intake_form import G2PIntakeForm
 from openg2p_registry_core.models import G2PRegister, G2PRegisterHistory, G2PGeo, G2PGeoHistory
-from sqlalchemy import Boolean, Date, Integer, Numeric, String, select
+from sqlalchemy import Boolean, Date, Integer, Numeric, String, select, event, func
+import datetime
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..services import G2PRegisterDomainServiceCluster
@@ -114,3 +115,26 @@ class G2PIntakeFormCluster(G2PIntakeForm, G2PRegister, G2PGeo, G2PCluster):
     def get_record_name_fields(self) -> str:
         """Return cluster information record_name from domain service implementation."""
         return G2PRegisterDomainServiceCluster().construct_record_name(self.to_dict())
+
+def generate_cluster_id(mapper, connection, target):
+    if not getattr(target, 'cluster_id', None):
+        current_year = datetime.date.today().year
+        prefix = f"CL/{current_year}/"
+
+        table = target.__table__
+        stmt = select(func.max(table.c.cluster_id)).where(table.c.cluster_id.like(f"{prefix}%"))
+
+        result = connection.execute(stmt).scalar()
+        if result:
+            try:
+                last_seq = int(result.split("/")[-1])
+                new_seq = last_seq + 1
+            except ValueError:
+                new_seq = 1
+        else:
+            new_seq = 1
+
+        target.cluster_id = f"{prefix}{new_seq:05d}"
+
+event.listen(G2PRegisterCluster, 'before_insert', generate_cluster_id)
+event.listen(G2PIntakeFormCluster, 'before_insert', generate_cluster_id)
