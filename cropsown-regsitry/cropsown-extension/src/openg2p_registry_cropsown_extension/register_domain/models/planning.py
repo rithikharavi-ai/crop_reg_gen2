@@ -20,12 +20,9 @@ from .enums import CroppingSystemEnum, SeedClassEnum, SeedSourceEnum
 
 
 class G2PPlanning:
-
-    land_uuid: Mapped[str] = mapped_column(String, nullable=True)
     # ── Plot: each line records the land it was worked on (Gen1 puts
     # land_info_id and its attributes on the line, not the header) ───────────
     land_id: Mapped[str] = mapped_column(String, nullable=True)
-    is_land_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
     ownership_type: Mapped[str] = mapped_column(String, nullable=True)        # Attribute lookup (OWNERSHIP_TYPE)
     soil_fertility_type: Mapped[str] = mapped_column(String, nullable=True)   # Attribute lookup (SOIL_FERTILITY)
     plot_category: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (PLOT_CATEGORY)
@@ -70,13 +67,10 @@ class G2PPlanning:
     end_month: Mapped[int] = mapped_column(Integer, nullable=True)
     end_day: Mapped[int] = mapped_column(Integer, nullable=True)
     planned_date_ec: Mapped[str] = mapped_column(String, nullable=True)
-    planned_fertilizer_sack: Mapped[float] = mapped_column(Numeric, nullable=True)
     da_name: Mapped[str] = mapped_column(String, nullable=True)
     da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
-
-    has_cluster_farming: Mapped[bool] = mapped_column(Boolean, nullable=True)
     cluster_details: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
 

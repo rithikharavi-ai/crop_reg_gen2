@@ -11,22 +11,12 @@ from ..models.enums import CropMaturityStatusEnum
 
 class G2PSchemaHarvest:
 
-    is_plot_not_registered: Optional[bool] = None
     harvest_id: Optional[str] = None
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None
     harvest_date_ec: Optional[str] = None
-    land_uuid: Optional[str] = None
-    harvest_id: Optional[str] = None
     land_id: Optional[str] = None
-    is_land_registered: Optional[bool] = None
-    ownership_type: Optional[str] = None
-    soil_fertility_type: Optional[str] = None
-    plot_category: Optional[str] = None
     land_area: Optional[float] = None
-    unit: Optional[str] = None
-    sub_kebele: Optional[str] = None
-    commodity: Optional[str] = None
     cluster_status: Optional[list[str]] = None
     crop_maturity_status: Optional[CropMaturityStatusEnum] = None
     harvest_date: Optional[date] = None

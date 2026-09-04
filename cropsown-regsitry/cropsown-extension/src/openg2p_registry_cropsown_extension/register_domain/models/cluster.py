@@ -22,7 +22,6 @@ class G2PCluster:
     # ── Plot: each line records the land it was worked on (Gen1 puts
     # land_info_id and its attributes on the line, not the header) ───────────
     land_id: Mapped[str] = mapped_column(String, nullable=True)
-    is_land_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
     land_area: Mapped[float] = mapped_column(Numeric, nullable=True)
     cluster_name: Mapped[str] = mapped_column(String, nullable=True)
     agro_ecological_zone: Mapped[AgroEcologicalZoneEnum] = mapped_column(String, nullable=True) # AgroEcologicalZoneEnum
@@ -34,8 +33,6 @@ class G2PCluster:
     water_source: Mapped[str] = mapped_column(String, nullable=True)          # Attribute lookup (WATER_SOURCE)
     water_source_method: Mapped[str] = mapped_column(String, nullable=True)   # Attribute lookup (WATER_SOURCE_METHOD)
     water_source_frequency: Mapped[str] = mapped_column(String, nullable=True) # Attribute lookup (WATER_SOURCE_FREQUENCY)
-
-    is_plot_not_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
     temporary_land_id: Mapped[str] = mapped_column(String, nullable=True)
     sync_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     # Season window. Gen1 stores the month/day pair alongside the date so a
@@ -62,14 +59,6 @@ class G2PCluster:
     supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
     collected_by_combiner: Mapped[float] = mapped_column(Numeric, nullable=True)
-    actual_cluster_plan: Mapped[float] = mapped_column(Numeric, nullable=True)
-    actual_cluster_collected_land: Mapped[float] = mapped_column(Numeric, nullable=True)
-    actual_cluster_collected_quintal: Mapped[float] = mapped_column(Numeric, nullable=True)
-    actual_cluster_participant_farmers: Mapped[int] = mapped_column(Integer, nullable=True)
-    actual_collected_land: Mapped[float] = mapped_column(Numeric, nullable=True)
-    actual_collected_land_quintal: Mapped[float] = mapped_column(Numeric, nullable=True)
-    actual_collected_by_combiner: Mapped[float] = mapped_column(Numeric, nullable=True)
-    is_actual: Mapped[bool] = mapped_column(Boolean, nullable=True)
 
 
 # All Register classes should have the prefix G2PRegister

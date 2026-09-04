@@ -8,4 +8,5 @@ INSERT INTO "public"."g2p_register_ui_tab_sections" ("tab_section_id","register_
 ('1fc08d1a-7ea1-5865-b2aa-0a121aff3b33','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_harvest_tab','cropsown_harvest_details_section_01',10),
 ('83b9828d-f311-5c48-942e-7f12f389c70f','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_sowing_tab','cropsown_infestation_details_section_01',20),
 ('37624abd-a2dd-49eb-bb37-5bf999fc870a','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_cropsown_tab','cropsown_survey_personnel_section_02',20),
-('91229230-9885-4111-93df-12df479872e3','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_cropsown_tab','cropsown_cropsown_location_section_03',30);
+('91229230-9885-4111-93df-12df479872e3','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_cropsown_tab','cropsown_cropsown_location_section_03',30),
+('d9971b0e-dd36-4992-b5d3-f7b7f15cd52f','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_cultivation_tab','cropsown_cultivation_cluster_details_section_01',20);

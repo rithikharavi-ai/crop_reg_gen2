@@ -10,13 +10,24 @@ _logger = logging.getLogger("g2p-register-domain-service")
 
 
 class G2PRegisterDomainServiceCluster(G2PRegisterDomainService):
-    async def validate_domain_attributes(self, records: list[dict]):
+    async def validate_domain_attributes(self, records: list[dict], session=None, **kwargs):
         for record in records:
+
+            from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
+            validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
+            validate_alphabetical_name(record.get("da_name"), "DA Name")
+            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
+            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
+            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
             compute_season_parts(record)
             compute_cluster_area(record)
             self._validate_cluster_area(record)
             self._validate_smallholders(record)
             self._validate_collected_land(record)
+            self._validate_cluster_plan(record)
+            self._validate_collected_by_combiner(record)
+            if session:
+                await self._validate_land_id_matches_planning(record, session=session)
 
     def _validate_cluster_area(self, record: dict) -> None:
         area = as_float(record.get("cluster_area_hectare"))
@@ -34,6 +45,60 @@ class G2PRegisterDomainServiceCluster(G2PRegisterDomainService):
         collected = as_float(record.get("collected_land"))
         if area is not None and collected is not None and collected > area:
             validation_error("collected_land must not exceed cluster_area_hectare")
+
+    def _validate_cluster_plan(self, record: dict) -> None:
+        timad = as_float(record.get("cluster_area_timad"))
+        area = as_float(record.get("cluster_area_hectare"))
+        plan = as_float(record.get("cluster_plan"))
+        if area is not None and plan is not None and plan > area:
+            validation_error(f"Plan Area (ha) ({plan}) must not exceed Total Cultivated Area ({area} ha, calculated from {timad} Timad)")
+
+    def _validate_collected_by_combiner(self, record: dict) -> None:
+        plan = as_float(record.get("cluster_plan"))
+        combiner = as_float(record.get("collected_by_combiner"))
+        if plan is not None and combiner is not None and combiner > plan:
+            validation_error(f"Collected by Combiner (ha) ({combiner}) must not exceed Plan Area ({plan} ha)")
+
+    async def _validate_land_id_matches_planning(self, record: dict, session) -> None:
+        cluster_land_id = record.get("land_id")
+        if not cluster_land_id or not str(cluster_land_id).strip():
+            return
+
+        submission_id = record.get("submission_id")
+        link_internal_record_id = record.get("link_internal_record_id")
+
+        if not submission_id and not link_internal_record_id:
+            return
+
+        from sqlalchemy import text
+
+        planning_land_ids = set()
+
+        # 1. Fetch Land IDs saved in intake form plannings for this submission
+        if submission_id:
+            res = await session.execute(
+                text("SELECT land_id FROM g2p_intake_form_plannings WHERE submission_id = :sub_id"),
+                {"sub_id": submission_id}
+            )
+            for row in res.fetchall():
+                if row[0] and str(row[0]).strip():
+                    planning_land_ids.add(str(row[0]).strip())
+
+        # 2. Fetch Land IDs from active registered plannings (if existing record)
+        if link_internal_record_id:
+            res = await session.execute(
+                text("SELECT land_id FROM g2p_register_plannings WHERE link_internal_record_id = :link_id AND record_status = 'ACTIVE'"),
+                {"link_id": link_internal_record_id}
+            )
+            for row in res.fetchall():
+                if row[0] and str(row[0]).strip():
+                    planning_land_ids.add(str(row[0]).strip())
+
+        # 3. Validate match
+        if planning_land_ids and str(cluster_land_id).strip() not in planning_land_ids:
+            validation_error(
+                f"Land ID '{cluster_land_id}' in Cluster Information does not match any Land ID specified in Crop Planning ({', '.join(planning_land_ids)})."
+            )
 
     def construct_search_text(self, payload: dict, extra: list[str] = None) -> str:
         _logger.info("Constructing search text for cluster")

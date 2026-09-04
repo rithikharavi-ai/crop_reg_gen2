@@ -10,8 +10,15 @@ _logger = logging.getLogger("g2p-register-domain-service")
 
 
 class G2PRegisterDomainServiceProduction(G2PRegisterDomainService):
-    async def validate_domain_attributes(self, records: list[dict]):
+    async def validate_domain_attributes(self, records: list[dict], **kwargs):
         for record in records:
+
+            from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
+            validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
+            validate_alphabetical_name(record.get("da_name"), "DA Name")
+            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
+            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
+            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
             compute_production_results(record)
             self._validate_area_under_production(record)
             self._validate_yields(record)
@@ -32,7 +39,6 @@ class G2PRegisterDomainServiceProduction(G2PRegisterDomainService):
 
         keys = [
             "functional_record_id",
-            "land_uuid",
             "land_id",
             "season",
             "commodity",

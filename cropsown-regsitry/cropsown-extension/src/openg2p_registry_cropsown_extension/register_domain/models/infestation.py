@@ -21,21 +21,12 @@ from .enums import GrowthStageEnum, SeverityLevelEnum
 
 class G2PInfestation:
     infestation_id: Mapped[str] = mapped_column(String, nullable=True)
-
-    land_uuid: Mapped[str] = mapped_column(String, nullable=True)
     # ── Plot: each line records the land it was worked on (Gen1 puts
     # land_info_id and its attributes on the line, not the header) ───────────
     land_id: Mapped[str] = mapped_column(String, nullable=True)
-    is_land_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    ownership_type: Mapped[str] = mapped_column(String, nullable=True)        # Attribute lookup (OWNERSHIP_TYPE)
-    soil_fertility_type: Mapped[str] = mapped_column(String, nullable=True)   # Attribute lookup (SOIL_FERTILITY)
-    plot_category: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (PLOT_CATEGORY)
-    land_area: Mapped[float] = mapped_column(Numeric, nullable=True)
-    unit: Mapped[str] = mapped_column(String, nullable=True)                  # LandSizeUnitEnum
-    sub_kebele: Mapped[str] = mapped_column(String, nullable=True)
     commodity: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (CROP_COMMODITY)
     growth_stage: Mapped[GrowthStageEnum] = mapped_column(String, nullable=True) # GrowthStageEnum
-    cluster_status: Mapped[list[str]] = mapped_column(JSONB, nullable=True)
+    cluster_status: Mapped[str] = mapped_column(String, nullable=True)
     infestation_type: Mapped[list[str]] = mapped_column(JSONB, nullable=True)      # Attribute lookup (INFESTATION_TYPE)
     pest_name: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (PEST)
     weed_name: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (WEED)
@@ -59,17 +50,21 @@ class G2PInfestation:
     fungicide_name: Mapped[str] = mapped_column(String, nullable=True)
     fungicide_type: Mapped[str] = mapped_column(String, nullable=True)
 
-    chemical_used: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (AGRO_CHEMICAL)
     severity_level: Mapped[SeverityLevelEnum] = mapped_column(String, nullable=True) # SeverityLevelEnum
     estimated_damage_pct: Mapped[float] = mapped_column(Numeric, nullable=True)
     observation_date: Mapped[str] = mapped_column(Date, nullable=True)
     geo_tagged_photo_document_id: Mapped[str] = mapped_column(String, nullable=True)
     action_taken: Mapped[str] = mapped_column(String, nullable=True)
 
-    is_plot_not_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
     temporary_land_id: Mapped[str] = mapped_column(String, nullable=True)
     sync_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     observation_date_ec: Mapped[str] = mapped_column(String, nullable=True)
+
+    da_name: Mapped[str] = mapped_column(String, nullable=True)
+    da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
+    supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
+    supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
+
 
 
 # All Register classes should have the prefix G2PRegister

@@ -23,11 +23,7 @@ class G2PSchemaPlanning:
     end_month: Optional[int] = None
     end_day: Optional[int] = None
     planned_date_ec: Optional[str] = None
-    planned_fertilizer_sack: Optional[float] = None
-    land_uuid: Optional[str] = None
-    planning_id: Optional[str] = None
     land_id: Optional[str] = None
-    is_land_registered: Optional[bool] = None
     ownership_type: Optional[str] = None
     soil_fertility_type: Optional[str] = None
     plot_category: Optional[str] = None
@@ -65,13 +61,10 @@ class G2PSchemaPlanning:
     end_month: Optional[int] = None
     end_day: Optional[int] = None
     planned_date_ec: Optional[str] = None
-    planned_fertilizer_sack: Optional[float] = None
     da_name: Optional[str] = None
     da_mobile_number: Optional[str] = None
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
-
-    has_cluster_farming: Optional[bool] = None
     cluster_details: Optional[List[Dict[str, Any]]] = None
 
 

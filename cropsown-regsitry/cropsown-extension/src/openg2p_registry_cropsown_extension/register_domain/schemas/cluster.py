@@ -12,8 +12,6 @@ from ..models.enums import AgroEcologicalZoneEnum
 
 
 class G2PSchemaCluster:
-
-    is_plot_not_registered: Optional[bool] = None
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None
     start_gc: Optional[date] = None
@@ -32,16 +30,7 @@ class G2PSchemaCluster:
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
     collected_by_combiner: Optional[float] = None
-    actual_cluster_plan: Optional[float] = None
-    actual_cluster_collected_land: Optional[float] = None
-    actual_cluster_collected_quintal: Optional[float] = None
-    actual_cluster_participant_farmers: Optional[int] = None
-    actual_collected_land: Optional[float] = None
-    actual_collected_land_quintal: Optional[float] = None
-    actual_collected_by_combiner: Optional[float] = None
-    is_actual: Optional[bool] = None
     land_id: Optional[str] = None
-    is_land_registered: Optional[bool] = None
     region: Optional[str] = None
     zone: Optional[str] = None
     woreda: Optional[str] = None

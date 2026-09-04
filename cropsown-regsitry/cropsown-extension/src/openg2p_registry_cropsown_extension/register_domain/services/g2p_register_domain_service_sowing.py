@@ -9,11 +9,56 @@ _logger = logging.getLogger("g2p-register-domain-service")
 
 
 class G2PRegisterDomainServiceSowing(G2PRegisterDomainService):
-    async def validate_domain_attributes(self, records: list[dict]):
+    async def validate_domain_attributes(self, records: list[dict], session=None, **kwargs):
         for record in records:
+
+            from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
+            validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
+            validate_alphabetical_name(record.get("da_name"), "DA Name")
+            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
+            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
+            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
             self._validate_sowing_date(record)
             self._validate_area_sown(record)
             self._validate_seed_quantity(record)
+            if session:
+                await self._validate_land_id_matches_planning(record, session=session)
+
+    async def _validate_land_id_matches_planning(self, record: dict, session) -> None:
+        land_id = record.get("land_id")
+        if not land_id or not str(land_id).strip():
+            return
+
+        submission_id = record.get("submission_id")
+        link_internal_record_id = record.get("link_internal_record_id")
+
+        if not submission_id and not link_internal_record_id:
+            return
+
+        from sqlalchemy import text
+
+        planning_land_ids = set()
+
+        if submission_id:
+            res = await session.execute(
+                text("SELECT land_id FROM g2p_intake_form_plannings WHERE submission_id = :sub_id"),
+                {"sub_id": submission_id}
+            )
+            for row in res.fetchall():
+                if row[0] and str(row[0]).strip():
+                    planning_land_ids.add(str(row[0]).strip())
+
+        if link_internal_record_id:
+            res = await session.execute(
+                text("SELECT land_id FROM g2p_register_plannings WHERE link_internal_record_id = :rec_id AND record_status = 'ACTIVE'"),
+                {"rec_id": link_internal_record_id}
+            )
+            for row in res.fetchall():
+                if row[0] and str(row[0]).strip():
+                    planning_land_ids.add(str(row[0]).strip())
+
+        if str(land_id).strip() not in planning_land_ids:
+            validation_error(f"Land ID '{land_id}' in Sowing does not match any Land ID specified in Crop Planning.")
 
     def _validate_sowing_date(self, record: dict) -> None:
         sowing_date = parse_date(record.get("sowing_date"))
@@ -35,7 +80,6 @@ class G2PRegisterDomainServiceSowing(G2PRegisterDomainService):
 
         keys = [
             "functional_record_id",
-            "land_uuid",
             "land_id",
             "season",
             "commodity",

@@ -19,35 +19,20 @@ from .enums import SeedClassEnum, SowingStatusEnum
 
 
 class G2PSowing:
-
-    land_uuid: Mapped[str] = mapped_column(String, nullable=True)
     # ── Plot: each line records the land it was worked on (Gen1 puts
     # land_info_id and its attributes on the line, not the header) ───────────
     land_id: Mapped[str] = mapped_column(String, nullable=True)
-    is_land_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    ownership_type: Mapped[str] = mapped_column(String, nullable=True)        # Attribute lookup (OWNERSHIP_TYPE)
-    soil_fertility_type: Mapped[str] = mapped_column(String, nullable=True)   # Attribute lookup (SOIL_FERTILITY)
-    plot_category: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (PLOT_CATEGORY)
-    land_area: Mapped[float] = mapped_column(Numeric, nullable=True)
-    unit: Mapped[str] = mapped_column(String, nullable=True)                  # LandSizeUnitEnum
-    sub_kebele: Mapped[str] = mapped_column(String, nullable=True)
     season: Mapped[str] = mapped_column(String, nullable=True)                # Attribute lookup (CROP_SEASON)
     commodity: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (CROP_COMMODITY)
-    crop_variety: Mapped[str] = mapped_column(String, nullable=True)          # Attribute lookup (CROP_VARIETY)
-    crop_category: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (CROP_CATEGORY)
     sowing_status: Mapped[SowingStatusEnum] = mapped_column(String, nullable=True) # SowingStatusEnum
     area_sown: Mapped[float] = mapped_column(Numeric, nullable=True)
     sowing_date: Mapped[str] = mapped_column(Date, nullable=True)
-    seed_class: Mapped[SeedClassEnum] = mapped_column(String, nullable=True)  # SeedClassEnum
-    seed_variety: Mapped[str] = mapped_column(String, nullable=True)   # Attribute lookup (SEED_VARIETY)
     actual_seed_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
     fertilizer_type: Mapped[str] = mapped_column(String, nullable=True)       # Attribute lookup (FERTILIZER_TYPE)
     fertilizer_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
-    cultivated_by: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (MACHINERY)
     cluster_status: Mapped[list[str]] = mapped_column(JSONB, nullable=True)        # Attribute lookup (CLUSTER_STATUS)
     has_pest_disease: Mapped[bool] = mapped_column(Boolean, nullable=True)
 
-    is_plot_not_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
     cluster_id: Mapped[str] = mapped_column(String, nullable=True)
     cluster_name: Mapped[str] = mapped_column(String, nullable=True)
     agro_ecological_zone: Mapped[str] = mapped_column(String, nullable=True)

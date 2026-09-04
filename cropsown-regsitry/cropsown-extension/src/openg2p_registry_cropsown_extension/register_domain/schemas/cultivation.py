@@ -23,15 +23,11 @@ class G2PSchemaCultivation:
     actual_planted_date_ec: Optional[str] = None
     actual_fertilizer_sack: Optional[float] = None
     is_crop_changed: Optional[bool] = None
-    land_uuid: Optional[str] = None
     land_id: Optional[str] = None
-    is_land_registered: Optional[bool] = None
     ownership_type: Optional[str] = None
     soil_fertility_type: Optional[str] = None
     plot_category: Optional[str] = None
     land_area: Optional[float] = None
-    unit: Optional[str] = None
-    sub_kebele: Optional[str] = None
     season: Optional[str] = None
     commodity: Optional[str] = None
     crop_variety: Optional[str] = None

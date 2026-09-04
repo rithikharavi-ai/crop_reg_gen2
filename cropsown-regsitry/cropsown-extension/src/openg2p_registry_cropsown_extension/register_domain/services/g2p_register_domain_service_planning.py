@@ -16,10 +16,16 @@ _logger = logging.getLogger("g2p-register-domain-service")
 
 
 class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
-    async def validate_domain_attributes(self, records: list[dict]):
+    async def validate_domain_attributes(self, records: list[dict], **kwargs):
         for record in records:
+
+            from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
+            validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
+            validate_alphabetical_name(record.get("da_name"), "DA Name")
+            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
+            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
+            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
             compute_season_parts(record)
-            compute_fertilizer_sacks(record, "planned_fertilizer_qty", "planned_fertilizer_sack")
             self._validate_date_in_season(record, "planned_date")
             self._validate_planned_area(record)
             self._validate_planned_date(record)
@@ -30,6 +36,11 @@ class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
         planned_area = as_float(record.get("planned_area"))
         if planned_area is not None and planned_area <= 0:
             validation_error("planned_area must be greater than zero when provided")
+            
+        land_area = as_float(record.get("land_area"))
+        if planned_area is not None and land_area is not None:
+            if planned_area > land_area:
+                validation_error(f"Planned Crop Area ({planned_area} ha) cannot be greater than Total Land Area ({land_area} ha).")
 
     def _validate_planned_date(self, record: dict) -> None:
         planned_date = parse_date(record.get("planned_date"))
@@ -41,7 +52,6 @@ class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
         for record in records:
             commodity = str(record.get("commodity") or "").strip()
             season = str(record.get("season") or "").strip()
-            land = str(record.get("land_uuid") or "").strip()
             if not commodity:
                 continue
             key = (commodity, season, land)
@@ -66,7 +76,6 @@ class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
 
         keys = [
             "functional_record_id",
-            "land_uuid",
             "land_id",
             "season",
             "commodity",

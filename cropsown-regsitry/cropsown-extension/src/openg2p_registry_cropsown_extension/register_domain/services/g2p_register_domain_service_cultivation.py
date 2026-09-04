@@ -16,8 +16,15 @@ _logger = logging.getLogger("g2p-register-domain-service")
 
 
 class G2PRegisterDomainServiceCultivation(G2PRegisterDomainService):
-    async def validate_domain_attributes(self, records: list[dict]):
+    async def validate_domain_attributes(self, records: list[dict], **kwargs):
         for record in records:
+
+            from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
+            validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
+            validate_alphabetical_name(record.get("da_name"), "DA Name")
+            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
+            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
+            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
             compute_season_parts(record)
             compute_fertilizer_sacks(record, "actual_fertilizer_qty", "actual_fertilizer_sack")
             self._validate_date_in_season(record, "actual_planted_date")
@@ -34,6 +41,11 @@ class G2PRegisterDomainServiceCultivation(G2PRegisterDomainService):
         crop_area = as_float(record.get("actual_crop_area"))
         if crop_area is not None and crop_area <= 0:
             validation_error("actual_crop_area must be greater than zero when provided")
+            
+        land_area = as_float(record.get("land_area"))
+        if crop_area is not None and land_area is not None:
+            if crop_area > land_area:
+                validation_error(f"Actual Crop Area ({crop_area} ha) cannot be greater than Total Land Area ({land_area} ha).")
 
     def _validate_date_in_season(self, record: dict, field: str) -> None:
         """Odoo: `_check_season_crop_required` — the date must fall inside the
@@ -50,7 +62,6 @@ class G2PRegisterDomainServiceCultivation(G2PRegisterDomainService):
 
         keys = [
             "functional_record_id",
-            "land_uuid",
             "land_id",
             "season",
             "commodity",

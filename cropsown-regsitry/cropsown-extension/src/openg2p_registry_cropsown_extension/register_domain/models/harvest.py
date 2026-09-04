@@ -19,19 +19,10 @@ from .enums import CropMaturityStatusEnum
 
 
 class G2PHarvest:
-
-    land_uuid: Mapped[str] = mapped_column(String, nullable=True)
     # ── Plot: each line records the land it was worked on (Gen1 puts
     # land_info_id and its attributes on the line, not the header) ───────────
     land_id: Mapped[str] = mapped_column(String, nullable=True)
-    is_land_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
-    ownership_type: Mapped[str] = mapped_column(String, nullable=True)        # Attribute lookup (OWNERSHIP_TYPE)
-    soil_fertility_type: Mapped[str] = mapped_column(String, nullable=True)   # Attribute lookup (SOIL_FERTILITY)
-    plot_category: Mapped[str] = mapped_column(String, nullable=True)         # Attribute lookup (PLOT_CATEGORY)
     land_area: Mapped[float] = mapped_column(Numeric, nullable=True)
-    unit: Mapped[str] = mapped_column(String, nullable=True)                  # LandSizeUnitEnum
-    sub_kebele: Mapped[str] = mapped_column(String, nullable=True)
-    commodity: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (CROP_COMMODITY)
     cluster_status: Mapped[list[str]] = mapped_column(JSONB, nullable=True)
     crop_maturity_status: Mapped[CropMaturityStatusEnum] = mapped_column(String, nullable=True) # CropMaturityStatusEnum
     harvest_date: Mapped[str] = mapped_column(Date, nullable=True)
@@ -57,7 +48,6 @@ class G2PHarvest:
     land_utilization_rate: Mapped[float] = mapped_column(Numeric, nullable=True)
     seed_productivity: Mapped[float] = mapped_column(Numeric, nullable=True)
 
-    is_plot_not_registered: Mapped[bool] = mapped_column(Boolean, nullable=True)
     temporary_land_id: Mapped[str] = mapped_column(String, nullable=True)
     sync_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     harvest_date_ec: Mapped[str] = mapped_column(String, nullable=True)

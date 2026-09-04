@@ -12,32 +12,41 @@ from ..models.enums import GrowthStageEnum, SeverityLevelEnum
 class G2PSchemaInfestation:
 
     infestation_id: Optional[str] = None
-    is_plot_not_registered: Optional[bool] = None
     temporary_land_id: Optional[str] = None
     sync_id: Optional[str] = None
     observation_date_ec: Optional[str] = None
-    land_uuid: Optional[str] = None
     land_id: Optional[str] = None
-    is_land_registered: Optional[bool] = None
-    ownership_type: Optional[str] = None
-    soil_fertility_type: Optional[str] = None
-    plot_category: Optional[str] = None
-    land_area: Optional[float] = None
-    unit: Optional[str] = None
-    sub_kebele: Optional[str] = None
     commodity: Optional[str] = None
     growth_stage: Optional[GrowthStageEnum] = None
-    cluster_status: Optional[List[str]] = None
+    cluster_status: Optional[str] = None
     infestation_type: Optional[List[str]] = None
     pest_name: Optional[str] = None
     weed_name: Optional[str] = None
     disease_name: Optional[str] = None
-    chemical_used: Optional[str] = None
+    disease_type: Optional[str] = None
+    disease_control_method: Optional[str] = None
+    disease_frequency_of_application: Optional[str] = None
+    pest_type: Optional[str] = None
+    pesticide_name: Optional[str] = None
+    pesticide_type: Optional[str] = None
+    pesticide_method: Optional[str] = None
+    pesticide_frequency: Optional[str] = None
+    weed_type: Optional[str] = None
+    weed_control_method: Optional[str] = None
+    weedicide_name: Optional[str] = None
+    weedicide_type: Optional[str] = None
+    weedicide_frequency: Optional[str] = None
+    fungicide_name: Optional[str] = None
+    fungicide_type: Optional[str] = None
     severity_level: Optional[SeverityLevelEnum] = None
     estimated_damage_pct: Optional[float] = None
     observation_date: Optional[date] = None
     geo_tagged_photo_document_id: Optional[str] = None
     action_taken: Optional[str] = None
+    da_name: Optional[str] = None
+    da_mobile_number: Optional[str] = None
+    supervisor_name: Optional[str] = None
+    supervisor_mobile_number: Optional[str] = None
 
 
 class G2PRegisterSchemaInfestation(G2PRegisterBaseSchema, G2PSchemaInfestation):
