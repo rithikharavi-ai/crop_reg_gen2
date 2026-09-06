@@ -5,7 +5,8 @@ from datetime import datetime
 
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import Date as SQLDate, and_, case, exists, func, inspect, or_, select
+import random
+from sqlalchemy import Boolean, Date as SQLDate, Numeric, Float, Integer, and_, case, exists, func, inspect, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -21,6 +22,7 @@ from ..models import (
     ChangeRequestSourceEnum,
     DeduplicationIntakeFormRegisterResult,
     DeduplicationIntakeFormIntakeFormResult,
+    G2PAttributeValue,
     G2PFunctionalIdGenerationQueue,
     G2PIntakeFormDefinition,
     G2PIntakeFormSubmission,
@@ -34,6 +36,7 @@ from ..models import (
     G2PRegisterSectionDocument,
     IntakeFormStatusEnum,
     ProcessStatusEnum,
+    RecordStatusEnum,
     RegisterPurposeEnum,
     SubmissionSourceEnum,
 )
@@ -50,8 +53,10 @@ from ..schemas import (
 )
 from .g2p_verification_service import G2PRegisterVerificationService
 
-_DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
-_DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
+import os
+_EXTENSION_MODULE = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+_DOMAIN_MODELS_MODULE = f"{_EXTENSION_MODULE}.register_domain.models"
+_DOMAIN_SCHEMAS_MODULE = f"{_EXTENSION_MODULE}.register_domain.schemas"
 _INTAKE_CLASS_PREFIX = "G2PIntakeForm"
 _logger = logging.getLogger("g2p-intake-form-data-service")
 
@@ -107,11 +112,32 @@ class G2PIntakeFormDataService(BaseService):
         intake_class = await self._resolve_intake_form_class(section_register_id, session)
 
         section_register_definition = await self._get_register_definition(section_register_id, session)
-        module = importlib.import_module("openg2p_registry_extensions.register_domain.factory")
-        domain_factory = getattr(module, "G2PRegisterDomainFactory").get_component()
+
+        # Flatten payload if the frontend grouped table rows under section_register_id
+        flattened_payload = []
+        for record in (section_payload or []):
+            if section_register_id in record and isinstance(record[section_register_id], dict) and "records" in record[section_register_id]:
+                nested_records = record[section_register_id]["records"]
+                base_record = {k: v for k, v in record.items() if k != section_register_id}
+                if not nested_records:
+                    if base_record:
+                        flattened_payload.append(base_record)
+                else:
+                    for nested in nested_records:
+                        flattened_payload.append({**base_record, **nested})
+            else:
+                flattened_payload.append(record)
+        section_payload = flattened_payload
+        for r in (section_payload or []):
+            if isinstance(r, dict) and "submission_id" not in r:
+                r["submission_id"] = submission.submission_id
+
+        module = importlib.import_module(f"{_EXTENSION_MODULE}.register_domain.factory")
+        domain_factory_cls = getattr(module, "G2PRegisterDomainFactory")
+        domain_factory = domain_factory_cls.get_component() or domain_factory_cls()
         domain_service = domain_factory.get_domain_service(section_register_definition.register_mnemonic)
         if domain_service:
-            await domain_service.validate_domain_attributes(section_payload or [])
+            await domain_service.validate_domain_attributes(section_payload or [], session=session)
 
         existing_rows = await self._get_intake_rows(intake_class, submission.submission_id, session)
         incoming_ids = await self._upsert_intake_rows(
@@ -498,6 +524,7 @@ class G2PIntakeFormDataService(BaseService):
         session.add(submission)
         await session.flush()
         section_payloads = await self._build_section_payloads(submission, session)
+        await self._validate_cross_section_payloads(submission, section_payloads, session)
         register_definition = await self._get_register_definition(submission.register_id, session)
         intake_form = await self._validate_form(submission.form_id, submission.register_id, session)
         source_data = [
@@ -517,6 +544,191 @@ class G2PIntakeFormDataService(BaseService):
             source_data=source_data,
         )
         return submission
+
+    async def _validate_cross_section_payloads(
+        self,
+        submission: G2PIntakeFormSubmission,
+        section_payloads: list[SectionPayloadResponseItem],
+        session,
+    ) -> None:
+        planning_land_ids = set()
+        cluster_records = []
+        cultivation_land_ids = set()
+        cultivation_cluster_records = []
+
+        for section in section_payloads:
+            if str(section.section_register_id) == "0c0343ca-bac1-5c41-ae5d-72476fa21033":
+                # Crop Planning
+                for rec in (section.records or []):
+                    land_id = rec.get("land_id") if isinstance(rec, dict) else None
+                    if land_id and str(land_id).strip():
+                        planning_land_ids.add(str(land_id).strip())
+            
+            elif str(section.section_register_id) == "c9ee1d48-93b5-52d5-a8fc-280266a39c10":
+                # Cultivation / Land Preparation
+                for rec in (section.records or []):
+                    land_id = rec.get("land_id") if isinstance(rec, dict) else None
+                    if land_id and str(land_id).strip():
+                        cultivation_land_ids.add(str(land_id).strip())
+
+            elif str(section.section_register_id) == "62098187-a3f7-517a-be6d-b25da981153e":
+                # Cluster Information
+                for rec in (section.records or []):
+                    if isinstance(rec, dict):
+                        cluster_records.append(rec)
+            
+            elif str(section.section_register_id) == "3392fa94-39fa-5eb7-891d-e593ab973e21":
+                # Cultivation Cluster
+                for rec in (section.records or []):
+                    if isinstance(rec, dict):
+                        cultivation_cluster_records.append(rec)
+
+        from openg2p_registry_core.errors import G2PRegistryErrorCodes, G2PRegistryException
+
+        if planning_land_ids and cluster_records:
+            for rec in cluster_records:
+                land_id = rec.get("land_id")
+                if land_id and str(land_id).strip() and str(land_id).strip() not in planning_land_ids:
+                    raise G2PRegistryException(
+                        code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                        message=f"Land ID '{land_id}' in Cluster Information does not match any Land ID specified in Crop Planning."
+                    )
+        
+        if cultivation_land_ids and cultivation_cluster_records:
+            for rec in cultivation_cluster_records:
+                land_id = rec.get("land_id")
+                if land_id and str(land_id).strip() and str(land_id).strip() not in cultivation_land_ids:
+                    raise G2PRegistryException(
+                        code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                        message=f"Land ID '{land_id}' in Cultivation Cluster does not match any Land ID specified in Cultivation/Land Preparation."
+                    )
+
+        await self._validate_land_ids_against_fayda_records(submission, session)
+
+    async def _validate_land_ids_against_fayda_records(
+        self,
+        submission: G2PIntakeFormSubmission,
+        session,
+    ) -> None:
+        sections = await self._get_form_sections(submission.form_id, session)
+
+        fayda_fan_id = None
+        current_planning_land_ids = set()
+        current_cultivation_land_ids = set()
+        sowing_land_ids = set()
+        infestation_land_ids = set()
+        harvest_land_ids = set()
+
+        for section in sections:
+            _register_definition, intake_class, _register_class, _schema_class, _history_class = (
+                await self._resolve_submission_models(section.section_register_id, session)
+            )
+            rows = (
+                await session.execute(
+                    select(intake_class).where(
+                        *self._submission_section_filters(
+                            intake_class,
+                            submission.submission_id,
+                            section.section_id,
+                        )
+                    )
+                )
+            ).scalars().all()
+
+            for row in rows:
+                if not fayda_fan_id and hasattr(row, "fayda_fan_id") and getattr(row, "fayda_fan_id"):
+                    fayda_fan_id = getattr(row, "fayda_fan_id")
+
+                land_id = getattr(row, "land_id", None)
+                if land_id and str(land_id).strip():
+                    clean_land = str(land_id).strip()
+                    reg_mnemonic = _register_definition.register_mnemonic
+                    if reg_mnemonic == "Planning":
+                        current_planning_land_ids.add(clean_land)
+                    elif reg_mnemonic == "Cultivation":
+                        current_cultivation_land_ids.add(clean_land)
+                    elif reg_mnemonic == "Sowing":
+                        sowing_land_ids.add(clean_land)
+                    elif reg_mnemonic == "Infestation":
+                        infestation_land_ids.add(clean_land)
+                    elif reg_mnemonic == "Harvest":
+                        harvest_land_ids.add(clean_land)
+
+        valid_land_ids = set(current_planning_land_ids | current_cultivation_land_ids)
+
+        if fayda_fan_id:
+            model_module = importlib.import_module(_DOMAIN_MODELS_MODULE)
+            reg_crop_sown_cls = getattr(model_module, "G2PRegisterCropSown", None)
+            reg_planning_cls = getattr(model_module, "G2PRegisterPlanning", None)
+            reg_cultivation_cls = getattr(model_module, "G2PRegisterCultivation", None)
+            reg_sowing_cls = getattr(model_module, "G2PRegisterSowing", None)
+
+            if reg_crop_sown_cls:
+                master_ids = (
+                    await session.execute(
+                        select(reg_crop_sown_cls.internal_record_id).where(
+                            reg_crop_sown_cls.fayda_fan_id == fayda_fan_id,
+                            reg_crop_sown_cls.record_status == RecordStatusEnum.ACTIVE.value,
+                        )
+                    )
+                ).scalars().all()
+
+                if master_ids:
+                    if reg_planning_cls:
+                        db_p_lands = (
+                            await session.execute(
+                                select(reg_planning_cls.land_id).where(
+                                    reg_planning_cls.link_internal_record_id.in_(master_ids),
+                                    reg_planning_cls.land_id != None,
+                                )
+                            )
+                        ).scalars().all()
+                        valid_land_ids.update([str(l).strip() for l in db_p_lands if l and str(l).strip()])
+
+                    if reg_cultivation_cls:
+                        db_c_lands = (
+                            await session.execute(
+                                select(reg_cultivation_cls.land_id).where(
+                                    reg_cultivation_cls.link_internal_record_id.in_(master_ids),
+                                    reg_cultivation_cls.land_id != None,
+                                )
+                            )
+                        ).scalars().all()
+                        valid_land_ids.update([str(l).strip() for l in db_c_lands if l and str(l).strip()])
+
+                    if reg_sowing_cls:
+                        db_s_lands = (
+                            await session.execute(
+                                select(reg_sowing_cls.land_id).where(
+                                    reg_sowing_cls.link_internal_record_id.in_(master_ids),
+                                    reg_sowing_cls.land_id != None,
+                                )
+                            )
+                        ).scalars().all()
+                        valid_land_ids.update([str(l).strip() for l in db_s_lands if l and str(l).strip()])
+
+        msg_fayda = f" for Fayda ID '{fayda_fan_id}'" if fayda_fan_id else ""
+
+        for land_id in sowing_land_ids:
+            if land_id not in valid_land_ids:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                    message=f"Land ID '{land_id}' specified in Sowing does not exist in any crop record{msg_fayda}."
+                )
+
+        for land_id in infestation_land_ids:
+            if land_id not in valid_land_ids:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                    message=f"Land ID '{land_id}' specified in Infestation does not exist in any crop record{msg_fayda}."
+                )
+
+        for land_id in harvest_land_ids:
+            if land_id not in valid_land_ids:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                    message=f"Land ID '{land_id}' specified in Harvesting does not exist in any crop record{msg_fayda}."
+                )
 
     async def approve_submission(self, submission_id: str, approved_by: str) -> SubmissionResponsePayload:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -549,6 +761,7 @@ class G2PIntakeFormDataService(BaseService):
             submission.register_ingest_process_last_error_code = None
             session.add(submission)
             await session.commit()
+            await self.process_submission_register_ingest(submission_id)
             return await self.get_submission_payload(submission.submission_id)
 
     async def reject_submission(self, submission_id: str, rejected_by: str) -> SubmissionResponsePayload:
@@ -849,6 +1062,8 @@ class G2PIntakeFormDataService(BaseService):
                     sections = await self._get_form_sections(submission.form_id, session)
                     documents_by_section = await self._get_submission_documents(submission_id, session)
 
+                    root_record_id_mapping = {}
+
                     for section in sections:
                         (
                             register_definition,
@@ -872,6 +1087,13 @@ class G2PIntakeFormDataService(BaseService):
 
                         ingested_rows = []
                         for intake_row in intake_rows:
+                            if register_definition.register_purpose == RegisterPurposeEnum.TABLE.value:
+                                old_link = getattr(intake_row, "link_internal_record_id", None)
+                                if old_link and old_link in root_record_id_mapping:
+                                    intake_row.link_internal_record_id = root_record_id_mapping[old_link]
+                                elif root_record_id_mapping:
+                                    intake_row.link_internal_record_id = list(root_record_id_mapping.values())[0]
+
                             live_row = await self._insert_live_register_row(
                                 submission,
                                 section,
@@ -880,6 +1102,7 @@ class G2PIntakeFormDataService(BaseService):
                                 register_class,
                                 intake_row,
                                 session,
+                                root_record_id_mapping=root_record_id_mapping,
                             )
                             await self._insert_history_row(
                                 submission,
@@ -1013,6 +1236,7 @@ class G2PIntakeFormDataService(BaseService):
             )
 
             await session.flush()
+        await self._validate_land_ids_against_fayda_records(submission, session)
 
     async def _build_section_payloads(
         self,
@@ -1134,6 +1358,7 @@ class G2PIntakeFormDataService(BaseService):
         register_class,
         intake_row,
         session,
+        root_record_id_mapping: dict = None,
     ):
         payload = self._serialize_model(intake_row, {"submission_id", "section_id"})
         schema_instance = schema_class(**payload)
@@ -1148,13 +1373,62 @@ class G2PIntakeFormDataService(BaseService):
             and register_definition.functional_id_generation_required
             and not record_data.get("functional_record_id")
         ):
-            session.add(
-                G2PFunctionalIdGenerationQueue(
-                    register_id=register_definition.register_id,
-                    internal_record_id=record_data["internal_record_id"],
+            gen_id = None
+            try:
+                from openg2p_registry_cropsown_extension.register_domain.factory import G2PIdGeneratorFactory
+                factory = G2PIdGeneratorFactory.get_component() or G2PIdGeneratorFactory()
+                generator = factory.get_id_generator()
+                if generator:
+                    affix = generator.generate_prefix_suffix(schema_instance, register_definition.register_mnemonic)
+                    seq_num = random.randint(10000, 99999)
+                    gen_id = f"{affix.prefix}{seq_num:05d}{affix.suffix}"
+            except Exception as e:
+                _logger.warning(f"Failed synchronous functional ID generation during intake ingest: {e}")
+
+            if not gen_id:
+                session.add(
+                    G2PFunctionalIdGenerationQueue(
+                        register_id=register_definition.register_id,
+                        internal_record_id=record_data["internal_record_id"],
+                    )
                 )
-            )
-            record_data["functional_record_id"] = f"TEMP-{uuid.uuid4().hex}"
+                gen_id = f"TEMP-{uuid.uuid4().hex}"
+
+            record_data["functional_record_id"] = gen_id
+
+        # Denormalize admin unit display names (region_name, zone_name, woreda_name, kebele_name)
+        for field, name_field in (("region", "region_name"), ("zone", "zone_name"), ("woreda", "woreda_name"), ("kebele", "kebele_name")):
+            if hasattr(register_class, field) and hasattr(register_class, name_field):
+                val = record_data.get(field)
+                if val:
+                    disp = None
+                    try:
+                        attr_val = (
+                            await session.execute(
+                                select(G2PAttributeValue).where(G2PAttributeValue.value_id == val)
+                            )
+                        ).scalars().first()
+                        disp = getattr(attr_val, "value_display", None) if attr_val else None
+                        if not disp:
+                            from openg2p_registry_core.engine import get_engines
+                            from sqlalchemy.ext.asyncio import async_sessionmaker
+                            md_engine = get_engines().get("db_engine_master_data")
+                            if md_engine:
+                                parts = val.split("_", 1)
+                                geo_id = f"{parts[0].lower()}-{parts[1]}" if len(parts) > 1 else val
+                                session_maker = async_sessionmaker(md_engine, expire_on_commit=False)
+                                async with session_maker() as md_session:
+                                    md_row = (await md_session.execute(
+                                        text("SELECT display_name FROM g2p_geo_level_values WHERE level_value_id = :val_id OR level_value_id = :orig_id"),
+                                        {"val_id": geo_id, "orig_id": val}
+                                    )).fetchone()
+                                    if md_row:
+                                        disp = md_row[0]
+                    except Exception as e:
+                        _logger.warning(f"Error looking up admin unit display name for {val}: {e}")
+                    record_data[name_field] = disp or val
+                elif name_field in record_data:
+                    record_data[name_field] = None
 
         existing = (
             await session.execute(
@@ -1163,6 +1437,37 @@ class G2PIntakeFormDataService(BaseService):
                 )
             )
         ).scalar_one_or_none()
+
+        if not existing and register_definition.register_purpose == RegisterPurposeEnum.REGISTER.value:
+            fayda_id = record_data.get("fayda_fan_id")
+            farmer_id = record_data.get("farmer_id")
+            crop_yr = record_data.get("crop_year") or record_data.get("production_year")
+
+            query_conditions = []
+            if fayda_id and hasattr(register_class, "fayda_fan_id"):
+                query_conditions.append(register_class.fayda_fan_id == fayda_id)
+            elif farmer_id and hasattr(register_class, "farmer_id"):
+                query_conditions.append(register_class.farmer_id == farmer_id)
+
+            if query_conditions:
+                stmt = select(register_class).where(or_(*query_conditions))
+                if hasattr(register_class, "crop_year") and crop_yr:
+                    stmt = stmt.where(
+                        or_(
+                            register_class.crop_year == crop_yr,
+                            register_class.crop_year == None
+                        )
+                    )
+                if hasattr(register_class, "record_status"):
+                    stmt = stmt.where(register_class.record_status == RecordStatusEnum.ACTIVE.value)
+
+                existing_match = (await session.execute(stmt)).scalars().first()
+                if existing_match:
+                    existing = existing_match
+                    old_sub_id = record_data["internal_record_id"]
+                    record_data["internal_record_id"] = existing.internal_record_id
+                    if root_record_id_mapping is not None:
+                        root_record_id_mapping[old_sub_id] = existing.internal_record_id
 
         if existing:
             await self._update_existing_record(existing, record_data, register_class)
@@ -1568,6 +1873,8 @@ class G2PIntakeFormDataService(BaseService):
         for key, value in record_data.items():
             if key in {"internal_record_id", "submission_id", "section_id"} or key not in mapper.columns:
                 continue
+            if value is None and getattr(existing, key, None) is not None:
+                continue
             setattr(existing, key, self._normalize_model_value(value, key, mapper))
         if session is not None:
             await existing.get_link_internal_record_id(session)
@@ -1586,6 +1893,28 @@ class G2PIntakeFormDataService(BaseService):
                     return value
             if isinstance(value, datetime):
                 return value.date()
+        elif isinstance(column.type, Boolean):
+            if isinstance(value, str):
+                if value.lower() in ("true", "t", "yes", "1"):
+                    return True
+                elif value.lower() in ("false", "f", "no", "0", ""):
+                    return False
+        elif isinstance(column.type, (Numeric, Float)):
+            if isinstance(value, str):
+                if not value.strip():
+                    return None
+                try:
+                    return float(value.replace("%", "").strip())
+                except (TypeError, ValueError):
+                    return None
+        elif isinstance(column.type, Integer):
+            if isinstance(value, str):
+                if not value.strip():
+                    return None
+                try:
+                    return int(value.strip())
+                except (TypeError, ValueError):
+                    return None
         return value
 
     def _convert_date_strings_to_objects(self, data_dict: dict, model_class) -> dict:
@@ -1606,6 +1935,30 @@ class G2PIntakeFormDataService(BaseService):
                         pass
                 elif isinstance(value, datetime):
                     converted[key] = value.date()
+            elif isinstance(column.type, Boolean):
+                if isinstance(value, str):
+                    if value.lower() in ("true", "t", "yes", "1"):
+                        converted[key] = True
+                    elif value.lower() in ("false", "f", "no", "0", ""):
+                        converted[key] = False
+            elif isinstance(column.type, (Numeric, Float)):
+                if isinstance(value, str):
+                    if not value.strip():
+                        converted[key] = None
+                    else:
+                        try:
+                            converted[key] = float(value.replace("%", "").strip())
+                        except (TypeError, ValueError):
+                            converted[key] = None
+            elif isinstance(column.type, Integer):
+                if isinstance(value, str):
+                    if not value.strip():
+                        converted[key] = None
+                    else:
+                        try:
+                            converted[key] = int(value.strip())
+                        except (TypeError, ValueError):
+                            converted[key] = None
         return converted
 
     def _set_data_if_column(self, record_data: dict, model_class, column_name: str, value) -> None:

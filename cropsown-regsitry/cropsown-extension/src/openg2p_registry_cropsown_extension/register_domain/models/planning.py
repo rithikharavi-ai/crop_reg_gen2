@@ -46,6 +46,7 @@ class G2PPlanning:
     expected_yield: Mapped[float] = mapped_column(Numeric, nullable=True)
     seed_class: Mapped[SeedClassEnum] = mapped_column(String, nullable=True)  # SeedClassEnum
     seed_source: Mapped[SeedSourceEnum] = mapped_column(String, nullable=True) # SeedSourceEnum
+    seed_variety: Mapped[str] = mapped_column(String, nullable=True)
     planned_seed_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
     planned_fertilizer_type: Mapped[str] = mapped_column(String, nullable=True) # Attribute lookup (FERTILIZER_TYPE)
     planned_fertilizer_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
@@ -67,12 +68,14 @@ class G2PPlanning:
     end_month: Mapped[int] = mapped_column(Integer, nullable=True)
     end_day: Mapped[int] = mapped_column(Integer, nullable=True)
     planned_date_ec: Mapped[str] = mapped_column(String, nullable=True)
+
+    cluster_details: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
+
+
     da_name: Mapped[str] = mapped_column(String, nullable=True)
     da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
-    cluster_details: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=True)
-
 
 # All Register classes should have the prefix G2PRegister
 class G2PRegisterPlanning(G2PRegister, G2PPlanning):

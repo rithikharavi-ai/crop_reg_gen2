@@ -37,12 +37,12 @@ class G2PSchemaCultivation:
     actual_yield: Optional[float] = None
     land_prep_method: Optional[str] = None
     cultivation_type: Optional[str] = None
-    cropping_system: Optional[CroppingSystemEnum] = None
+    cropping_system: Optional[str] = None
     actual_planted_date: Optional[date] = None
     actual_crop_area: Optional[float] = None
     actual_growth_duration_days: Optional[int] = None
-    actual_seed_class: Optional[SeedClassEnum] = None
-    actual_seed_source: Optional[SeedSourceEnum] = None
+    actual_seed_class: Optional[str] = None
+    actual_seed_source: Optional[str] = None
     seed_variety: Optional[str] = None
     actual_seed_qty: Optional[float] = None
     actual_fertilizer_type: Optional[str] = None
@@ -51,11 +51,15 @@ class G2PSchemaCultivation:
     water_source_method: Optional[str] = None
     water_source_frequency: Optional[str] = None
     remark: Optional[str] = None
+
+
+
+
+
     da_name: Optional[str] = None
     da_mobile_number: Optional[str] = None
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
-
 
 
 class G2PRegisterSchemaCultivation(G2PRegisterBaseSchema, G2PSchemaCultivation):

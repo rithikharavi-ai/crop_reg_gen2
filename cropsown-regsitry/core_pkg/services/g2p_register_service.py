@@ -62,6 +62,10 @@ _logger = logging.getLogger('g2p-register-service')
 _engine = dbengine.get()
 _config = Settings.get_config(strict=False)
 
+import os
+_EXTENSION_MODULE = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+_DOMAIN_MODELS_MODULE = f"{_EXTENSION_MODULE}.register_domain.models"
+
 class G2PRegisterService(BaseService):
 
     async def get_register_summary_data(self, policy_mnemonics: list[str] | None = None) -> list[RegisterSummaryData]:
@@ -665,7 +669,7 @@ class G2PRegisterService(BaseService):
 
     async def validate_internal_record(self, g2p_register_definition: G2PRegisterDefinition, internal_record_id: str, session: Session) -> None:
 
-        module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+        module = importlib.import_module(_DOMAIN_MODELS_MODULE)
 
         register_class_prefix = "G2PRegister"
         implementation_class_name = f"{register_class_prefix}{g2p_register_definition.register_mnemonic}"
@@ -729,7 +733,7 @@ class G2PRegisterService(BaseService):
         policy_mnemonics: list[str] | None = None,
     ) -> int:
         try:
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            module = importlib.import_module(_DOMAIN_MODELS_MODULE)
             register_class_prefix = "G2PRegister"
             implementation_class_name = f"{register_class_prefix}{register_definition.register_mnemonic}"
             register_class = getattr(module, implementation_class_name)
@@ -849,7 +853,7 @@ class G2PRegisterService(BaseService):
         """Check if a register has data in register table or change_request table (any state)"""
         # 1. Check register table (using dynamic class)
         try:
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            module = importlib.import_module(_DOMAIN_MODELS_MODULE)
             register_class_prefix = "G2PRegister"
             implementation_class_name = f"{register_class_prefix}{register_definition.register_mnemonic}"
             implementation_class = getattr(module, implementation_class_name)
@@ -1037,7 +1041,7 @@ class G2PRegisterService(BaseService):
         
         # Get the implementation class for this register
         try:
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            module = importlib.import_module(_DOMAIN_MODELS_MODULE)
             register_class_prefix: str = "G2PRegister"
             implementation_class_name: str = f"{register_class_prefix}{g2p_register_definition.register_mnemonic}"
             implementation_class = getattr(module, implementation_class_name)
@@ -1158,7 +1162,7 @@ class G2PRegisterService(BaseService):
 
         # Get the implementation class for this register
         try:
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            module = importlib.import_module(_DOMAIN_MODELS_MODULE)
             register_class_prefix: str = "G2PRegister"
             implementation_class_name: str = f"{register_class_prefix}{g2p_register_definition.register_mnemonic}"
             implementation_class = getattr(module, implementation_class_name)
@@ -1231,6 +1235,9 @@ class G2PRegisterService(BaseService):
             await session.execute(query)
         ).scalars().all()
 
+        _logger.warning(f"RAW QUERY REGISTER LIST: {str(query.compile(compile_kwargs={'literal_binds': True}))}")
+        _logger.warning(f"RAW QUERY REGISTER COUNT: {total_items}")
+
         search_results_list: list[SearchResultData] = []
 
         # Batch-resolve presigned URLs for record images through the document catalog
@@ -1246,45 +1253,51 @@ class G2PRegisterService(BaseService):
 
         # Convert ORM objects to SearchResultData while still in session context
         for result in search_results:
-            # Build display_fields list from schema with actual values
-            display_fields_list: list[DisplayField] = []
-            if display_fields_sorted:
-                for field_config in display_fields_sorted:
-                    field_name: str = field_config.get("field_name")
-                    value = getattr(result, field_name, None) if hasattr(result, field_name) else None
-                    # Convert datetime objects to string
-                    if value is not None and hasattr(value, 'isoformat'):
-                        value = value.isoformat()
-                    # Convert non-string values to string for consistency
-                    if value is not None and not isinstance(value, str):
-                        value = str(value)
-                    display_fields_list.append(DisplayField(
-                        field_name=field_name,
-                        value=value,
-                        order=field_config.get("order", 999)
-                    ))
+            try:
+                # Build display_fields list from schema with actual values
+                display_fields_list: list[DisplayField] = []
+                if display_fields_sorted:
+                    for field_config in display_fields_sorted:
+                        field_name: str = field_config.get("field_name")
+                        value = getattr(result, field_name, None) if hasattr(result, field_name) else None
+                        # Convert datetime objects to string
+                        if value is not None and hasattr(value, 'isoformat'):
+                            value = value.isoformat()
+                        # Convert non-string values to string for consistency
+                        if value is not None and not isinstance(value, str):
+                            value = str(value)
+                        display_fields_list.append(DisplayField(
+                            field_name=field_name,
+                            value=value,
+                            order=field_config.get("order", 999)
+                        ))
 
-            # Presigned URL for record image if it exists
-            record_image_url = None
-            if getattr(result, 'record_image_document_id', None):
-                record_image_url = record_image_urls.get(result.record_image_document_id)
+                # Presigned URL for record image if it exists
+                record_image_url = None
+                if getattr(result, 'record_image_document_id', None):
+                    record_image_url = record_image_urls.get(result.record_image_document_id)
 
-            # Create SearchResultData object
-            search_result_data: SearchResultData = SearchResultData(
-                internal_record_id=result.internal_record_id,
-                functional_record_id=result.functional_record_id,
-                link_internal_record_id=result.link_internal_record_id,
-                foundational_id=result.foundational_id if hasattr(result, 'foundational_id') else None,
-                link_foundational_id=result.link_foundational_id,
-                record_name=result.record_name,
-                record_image_url=record_image_url,
-                created_by=result.created_by,
-                created_at=str(result.created_at.isoformat()) if result.created_at and hasattr(result.created_at, 'isoformat') else None,
-                last_approved_at=str(result.last_approved_at.isoformat()) if result.last_approved_at and hasattr(result.last_approved_at, 'isoformat') else None,
-                last_approved_by=result.last_approved_by,
-                display_fields=display_fields_list if display_fields_list else None
-            )
-            search_results_list.append(search_result_data)
+                # Create SearchResultData object
+                search_result_data: SearchResultData = SearchResultData(
+                    internal_record_id=result.internal_record_id,
+                    functional_record_id=result.functional_record_id,
+                    link_internal_record_id=result.link_internal_record_id,
+                    foundational_id=result.foundational_id if hasattr(result, 'foundational_id') else None,
+                    link_foundational_id=result.link_foundational_id,
+                    record_name=result.record_name,
+                    record_image_url=record_image_url,
+                    created_by=result.created_by,
+                    created_at=str(result.created_at.isoformat()) if result.created_at and hasattr(result.created_at, 'isoformat') else None,
+                    last_approved_at=str(result.last_approved_at.isoformat()) if result.last_approved_at and hasattr(result.last_approved_at, 'isoformat') else None,
+                    last_approved_by=result.last_approved_by,
+                    display_fields=display_fields_list if display_fields_list else None
+                )
+                search_results_list.append(search_result_data)
+            except Exception as e:
+                import traceback
+                _logger.error(f"Error mapping record {result.internal_record_id}: {e}")
+                _logger.error(traceback.format_exc())
+                raise e
 
         return search_results_list, total_items
 
@@ -1352,7 +1365,7 @@ class G2PRegisterService(BaseService):
             for section in sections:
                 unique_section_register_ids.add(section.section_register_id)
 
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            module = importlib.import_module(_DOMAIN_MODELS_MODULE)
             history_class_prefix = "G2PRegisterHistory"
             register_class_prefix = "G2PRegister"
 
@@ -1473,7 +1486,7 @@ class G2PRegisterService(BaseService):
                 )
 
             try:
-                module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+                module = importlib.import_module(_DOMAIN_MODELS_MODULE)
                 implementation_class_name = f"G2PRegister{register_definition.register_mnemonic}"
                 implementation_class = getattr(module, implementation_class_name)
             except (AttributeError, ModuleNotFoundError) as error:
@@ -1594,7 +1607,7 @@ class G2PRegisterService(BaseService):
 
             # Collect unique dates from all history classes
             unique_dates = set()
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            module = importlib.import_module(_DOMAIN_MODELS_MODULE)
             history_class_prefix = "G2PRegisterHistory"
 
             for section_register_id in unique_section_register_ids:
@@ -1687,7 +1700,7 @@ class G2PRegisterService(BaseService):
             )
             sections = sections_result.scalars().all()
 
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            module = importlib.import_module(_DOMAIN_MODELS_MODULE)
             history_class_prefix = "G2PRegisterHistory"
 
             results = []
@@ -1789,7 +1802,7 @@ class G2PRegisterService(BaseService):
 
             # Get the implementation class for this register
             try:
-                module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+                module = importlib.import_module(_DOMAIN_MODELS_MODULE)
                 register_class_prefix: str = "G2PRegister"
                 implementation_class_name: str = f"{register_class_prefix}{g2p_register_definition.register_mnemonic}"
                 implementation_class = getattr(module, implementation_class_name)
@@ -3571,7 +3584,7 @@ class G2PRegisterService(BaseService):
         
         # Try extensions for regular registers
         try:
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            module = importlib.import_module(_DOMAIN_MODELS_MODULE)
             register_class_prefix: str = "G2PRegister"
             implementation_class_name: str = f"{register_class_prefix}{register_mnemonic}"
             implementation_class = getattr(module, implementation_class_name)
@@ -3703,15 +3716,15 @@ class G2PRegisterService(BaseService):
             section_description=section.section_description,
             documents_required=section.documents_required,
             no_of_verifications_required=section.no_of_verifications_required,
-            auto_approval=section.auto_approval,
-            cr_auto_approve_for_bene_portal=section.cr_auto_approve_for_bene_portal,
-            cr_auto_approve_for_agent_portal=section.cr_auto_approve_for_agent_portal,
-            cr_auto_approve_for_staff_portal=section.cr_auto_approve_for_staff_portal,
-            cr_auto_approve_for_partner=section.cr_auto_approve_for_partner,
-            cr_auto_approve_for_intake_form=section.cr_auto_approve_for_intake_form,
+            auto_approval=getattr(section, "auto_approval", False),
+            cr_auto_approve_for_bene_portal=getattr(section, "cr_auto_approve_for_bene_portal", False),
+            cr_auto_approve_for_agent_portal=getattr(section, "cr_auto_approve_for_agent_portal", False),
+            cr_auto_approve_for_staff_portal=getattr(section, "cr_auto_approve_for_staff_portal", False),
+            cr_auto_approve_for_partner=getattr(section, "cr_auto_approve_for_partner", False),
+            cr_auto_approve_for_intake_form=getattr(section, "cr_auto_approve_for_intake_form", False),
             is_list=section.is_list,
             register_purpose=register_purpose,
-            is_primary_section=section.is_primary_section,
+            is_primary_section=getattr(section, "is_primary_section", False),
             is_core_section=section.is_core_section,
             section_order=getattr(section, "section_order", 0),
             section_ui_schema=section.section_ui_schema,

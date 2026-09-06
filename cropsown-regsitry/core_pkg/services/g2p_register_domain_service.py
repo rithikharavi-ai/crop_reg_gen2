@@ -67,7 +67,7 @@ class G2PRegisterDomainService(BaseService):
     def construct_search_text(self, payload: dict, extra: list[str] = None) -> str:
         raise NotImplementedError("Register Domain Service should be overridden by the domain service implementation")
 
-    async def validate_domain_attributes(self, records: list[dict]):
+    async def validate_domain_attributes(self, records: list[dict], **kwargs):
         raise NotImplementedError("Register Domain Service should be overridden by the domain service implementation")
 
     async def pre_approve(self, change_request: G2PRegisterChangeRequest, session: AsyncSession):
@@ -301,7 +301,9 @@ class G2PRegisterDomainService(BaseService):
         """Find candidate records from the register based on dedup fields."""
         try:
             # Get register class
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            import os
+            ext_mod = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+            module = importlib.import_module(f"{ext_mod}.register_domain.models")
             register_class_prefix = "G2PRegister"
             implementation_class_name = f"{register_class_prefix}{register_definition.register_mnemonic}"
             register_class = getattr(module, implementation_class_name)

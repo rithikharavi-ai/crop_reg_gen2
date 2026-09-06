@@ -6,7 +6,7 @@ from openg2p_registry_core.schemas import (
     G2PRegisterHistorySchema,
     G2PIntakeFormSchemaBase,
 )
-from ..models.enums import SeedClassEnum, SowingStatusEnum
+from ..models.enums import SeedClassEnum
 
 
 class G2PSchemaSowing:
@@ -24,22 +24,24 @@ class G2PSchemaSowing:
     land_id: Optional[str] = None
     season: Optional[str] = None
     commodity: Optional[str] = None
-    sowing_status: Optional[SowingStatusEnum] = None
     area_sown: Optional[float] = None
     sowing_date: Optional[date] = None
-    actual_seed_qty: Optional[float] = None
     fertilizer_type: Optional[str] = None
     fertilizer_qty: Optional[float] = None
     cluster_status: Optional[List[str]] = None
     cluster_season: Optional[str] = None
-    cluster_sowing_status: Optional[SowingStatusEnum] = None
     cluster_area_sown: Optional[float] = None
+    cluster_has_pest_disease: Optional[bool] = None
     has_pest_disease: Optional[bool] = None
+
+
+
+
+
     da_name: Optional[str] = None
     da_mobile_number: Optional[str] = None
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
-
 
 
 class G2PRegisterSchemaSowing(G2PRegisterBaseSchema, G2PSchemaSowing):

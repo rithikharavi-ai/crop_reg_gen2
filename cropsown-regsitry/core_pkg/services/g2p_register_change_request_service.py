@@ -8,7 +8,7 @@ from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
 from openg2p_registry_core.services.g2p_completion_score_service import G2PCompletionScoreService
 from openg2p_registry_core.services.g2p_score_compute_service import G2PScoreComputeService
-from sqlalchemy import Date as SQLDate, and_, exists, func, inspect, or_, select
+from sqlalchemy import Boolean, Date as SQLDate, Float, Integer, Numeric, and_, exists, func, inspect, or_, select
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -58,9 +58,11 @@ from .g2p_register_service import G2PRegisterService
 _logger = logging.getLogger("g2p-register-change-request-service")
 _config = Settings.get_config(strict=False)
 
-_DOMAIN_FACTORY_MODULE = "openg2p_registry_extensions.register_domain.factory"
-_DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
-_DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
+import os
+_EXTENSION_MODULE = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+_DOMAIN_FACTORY_MODULE = f"{_EXTENSION_MODULE}.register_domain.factory"
+_DOMAIN_MODELS_MODULE = f"{_EXTENSION_MODULE}.register_domain.models"
+_DOMAIN_SCHEMAS_MODULE = f"{_EXTENSION_MODULE}.register_domain.schemas"
 _DOMAIN_FACTORY_CLASS = "G2PRegisterDomainFactory"
 _REGISTER_CLASS_PREFIX = "G2PRegister"
 _REGISTER_SCHEMA_CLASS_PREFIX = "G2PRegisterSchema"
@@ -108,6 +110,7 @@ class G2PRegisterChangeRequestService(BaseService):
             await self._validate_domain_attributes(
                 self._records_from_change_request_payload(change_request_request_payload),
                 section_register_definition.register_mnemonic,
+                session=session,
             )
 
             # Extract internal_record_id from change_payload if present
@@ -328,7 +331,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
         # Enqueue score computations for the change request
         _logger.debug(f"Enqueuing score computations for change_request_id: {change_request_id}")
-        g2p_score_compute_service = G2PScoreComputeService.get_component()
+        g2p_score_compute_service = G2PScoreComputeService.get_component() or G2PScoreComputeService()
         await g2p_score_compute_service.enqueue_score_computations_for_change_request(
             change_request=change_request,
             session=session,
@@ -353,10 +356,11 @@ class G2PRegisterChangeRequestService(BaseService):
             change_request_id=change_request_id,
             session=session,
             skip_verification=True,
+            skip_sequence_check=True,
             approved_by=approved_by,
         )
         await self._fanout_outgest_for_change_request(change_request, session)
-        score_service = G2PScoreComputeService.get_component()
+        score_service = G2PScoreComputeService.get_component() or G2PScoreComputeService()
         await score_service.enqueue_score_computations_for_change_request(
             change_request=change_request,
             session=session,
@@ -540,15 +544,27 @@ class G2PRegisterChangeRequestService(BaseService):
             generate_functional_record_id: bool = await self._check_functional_record_id_generation_required(
                 register_definition
             )
-            if generate_functional_record_id:
+            if generate_functional_record_id and not change_payload.get("functional_record_id"):
                 await self._handle_functional_record_id_generation(
                     register_id=register_definition.register_id,
                     internal_record_id=subject_internal_record_id,
                     session=session,
                 )
-            schema_dict["functional_record_id"] = (
-                str(f"TEMP-{uuid.uuid4().hex}") if generate_functional_record_id else change_payload.get("functional_record_id")
-            )
+                gen_id = None
+                try:
+                    import random
+                    from openg2p_registry_cropsown_extension.register_domain.factory import G2PIdGeneratorFactory
+                    factory = G2PIdGeneratorFactory.get_component() or G2PIdGeneratorFactory()
+                    generator = factory.get_id_generator()
+                    if generator:
+                        affix = generator.generate_prefix_suffix(schema_dict, register_definition.register_mnemonic)
+                        seq_num = random.randint(10000, 99999)
+                        gen_id = f"{affix.prefix}{seq_num:05d}{affix.suffix}"
+                except Exception as e:
+                    _logger.warning(f"Failed synchronous functional ID generation in CR: {e}")
+                schema_dict["functional_record_id"] = gen_id or f"TEMP-{uuid.uuid4().hex}"
+            else:
+                schema_dict["functional_record_id"] = change_payload.get("functional_record_id")
             schema_dict["created_by"] = change_request.created_by
             schema_dict["created_at"] = change_request.created_at
             schema_dict["last_approved_at"] = change_request.approved_at
@@ -816,7 +832,7 @@ class G2PRegisterChangeRequestService(BaseService):
             )
 
     async def insert_into_register_history(self, change_request: G2PRegisterChangeRequest, session) -> None:
-        history_service = G2PRegisterHistoryService.get_component()
+        history_service = G2PRegisterHistoryService.get_component() or G2PRegisterHistoryService()
         await history_service.insert_into_register_history(change_request, session)
 
     def _set_change_request_approval_state(
@@ -852,32 +868,49 @@ class G2PRegisterChangeRequestService(BaseService):
         await domain_service.post_approve(change_request, session)
 
     def _convert_date_strings_to_objects(self, data_dict: dict, model_class) -> dict:
-        """Helper method to convert date strings to date objects for SQLAlchemy Date columns"""
-        # Get the model's column information
+        """Helper method to convert date, boolean, and numeric strings for SQLAlchemy columns"""
         mapper = inspect(model_class)
         converted_dict = data_dict.copy()
         
         for key, value in converted_dict.items():
-            if value is None:
+            if value is None or key not in mapper.columns:
                 continue
-            # Check if the column is a Date type
-            if key in mapper.columns:
-                column = mapper.columns[key]
-                # Check if column type is SQLAlchemy Date type
-                if isinstance(column.type, SQLDate):
-                    # If value is a string, try to convert it to a date object
-                    if isinstance(value, str):
-                        if not value.strip():
-                            converted_dict[key] = None
-                            continue
+            column = mapper.columns[key]
+            if isinstance(column.type, SQLDate):
+                if isinstance(value, str):
+                    if not value.strip():
+                        converted_dict[key] = None
+                        continue
+                    try:
+                        converted_dict[key] = datetime.strptime(value, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        pass
+                elif isinstance(value, datetime):
+                    converted_dict[key] = value.date()
+            elif isinstance(column.type, Boolean):
+                if isinstance(value, str):
+                    if value.lower() in ("true", "t", "yes", "1"):
+                        converted_dict[key] = True
+                    elif value.lower() in ("false", "f", "no", "0", ""):
+                        converted_dict[key] = False
+            elif isinstance(column.type, (Numeric, Float)):
+                if isinstance(value, str):
+                    if not value.strip():
+                        converted_dict[key] = None
+                    else:
                         try:
-                            converted_dict[key] = datetime.strptime(value, '%Y-%m-%d').date()
-                        except (ValueError, TypeError):
-                            # If parsing fails, keep the original value
-                            pass
-                    elif isinstance(value, datetime):
-                        # If it's a datetime, convert to date
-                        converted_dict[key] = value.date()
+                            converted_dict[key] = float(value.replace("%", "").strip())
+                        except (TypeError, ValueError):
+                            converted_dict[key] = None
+            elif isinstance(column.type, Integer):
+                if isinstance(value, str):
+                    if not value.strip():
+                        converted_dict[key] = None
+                    else:
+                        try:
+                            converted_dict[key] = int(value.strip())
+                        except (TypeError, ValueError):
+                            converted_dict[key] = None
         
         return converted_dict
 
@@ -908,12 +941,12 @@ class G2PRegisterChangeRequestService(BaseService):
                 )
             )
         ).scalar()
-        module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+        module = importlib.import_module(_DOMAIN_MODELS_MODULE)
         register_class_prefix = "G2PRegister"
         implementation_class_name = f"{register_class_prefix}{register_definition.register_mnemonic}"
         register_class = getattr(module, implementation_class_name)
 
-        schema_module = importlib.import_module("openg2p_registry_extensions.register_domain.schemas")
+        schema_module = importlib.import_module(_DOMAIN_SCHEMAS_MODULE)
         schema_class_prefix = "G2PRegisterSchema"
         schema_class_name = f"{schema_class_prefix}{register_definition.register_mnemonic}"
         schema_class = getattr(schema_module, schema_class_name)
@@ -2173,10 +2206,11 @@ class G2PRegisterChangeRequestService(BaseService):
         self,
         records: list[dict],
         section_register_mnemonic: str,
+        session=None,
     ) -> None:
         domain_service = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)
         if domain_service:
-            await domain_service.validate_domain_attributes(records)
+            await domain_service.validate_domain_attributes(records, session=session)
 
     def _get_required_domain_service(self, register_mnemonic: str) -> G2PRegisterDomainService:
         domain_service = self._get_domain_service_by_register_mnemonic(register_mnemonic)

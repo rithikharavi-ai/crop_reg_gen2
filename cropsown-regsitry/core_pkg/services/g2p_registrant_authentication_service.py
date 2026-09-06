@@ -159,8 +159,9 @@ class G2PRegistrantAuthenticationService(BaseService):
             try:
                 # Get the implementation class for this register (similar to G2PRegisterService)
                 if register_definition:
-                    import importlib
-                    module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+                    import importlib, os
+                    ext_mod = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+                    module = importlib.import_module(f"{ext_mod}.register_domain.models")
                     register_class_prefix = "G2PRegister"
                     implementation_class_name = f"{register_class_prefix}{register_definition.register_mnemonic}"
                     implementation_class = getattr(module, implementation_class_name)
@@ -339,8 +340,9 @@ class G2PRegistrantAuthenticationService(BaseService):
                 try:
                     register_definition = await session.get(G2PRegisterDefinition, auth.register_id)
                     if register_definition:
-                        import importlib
-                        module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+                        import importlib, os
+                        ext_mod = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+                        module = importlib.import_module(f"{ext_mod}.register_domain.models")
                         implementation_class_name = f"G2PRegister{register_definition.register_mnemonic}"
                         implementation_class = getattr(module, implementation_class_name)
                         

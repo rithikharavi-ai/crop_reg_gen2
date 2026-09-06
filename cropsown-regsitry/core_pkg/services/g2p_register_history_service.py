@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import Date as SQLDate, inspect, select
+from sqlalchemy import Boolean, Date as SQLDate, Float, Integer, Numeric, inspect, select
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload, G2PRegisterDefinition, RegisterPurposeEnum
@@ -30,10 +30,12 @@ class G2PRegisterHistoryService(BaseService):
         if register_definition.register_purpose == RegisterPurposeEnum.PROGRAM_REGISTER.value:
             return
 
-        module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+        import os
+        ext_mod = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+        module = importlib.import_module(f"{ext_mod}.register_domain.models")
         history_class = getattr(module, f"G2PRegisterHistory{register_definition.register_mnemonic}")
 
-        schema_module = importlib.import_module("openg2p_registry_extensions.register_domain.schemas")
+        schema_module = importlib.import_module(f"{ext_mod}.register_domain.schemas")
         history_schema_class = getattr(schema_module, f"G2PRegisterHistorySchema{register_definition.register_mnemonic}")
 
         payload_result = await session.execute(
@@ -100,5 +102,29 @@ class G2PRegisterHistoryService(BaseService):
                         _logger.debug("Leaving non-date string value unchanged for history field %s", key)
                 elif isinstance(value, datetime):
                     converted_dict[key] = value.date()
+            elif isinstance(column.type, Boolean):
+                if isinstance(value, str):
+                    if value.lower() in ("true", "t", "yes", "1"):
+                        converted_dict[key] = True
+                    elif value.lower() in ("false", "f", "no", "0", ""):
+                        converted_dict[key] = False
+            elif isinstance(column.type, (Numeric, Float)):
+                if isinstance(value, str):
+                    if not value.strip():
+                        converted_dict[key] = None
+                    else:
+                        try:
+                            converted_dict[key] = float(value.replace("%", "").strip())
+                        except (TypeError, ValueError):
+                            converted_dict[key] = None
+            elif isinstance(column.type, Integer):
+                if isinstance(value, str):
+                    if not value.strip():
+                        converted_dict[key] = None
+                    else:
+                        try:
+                            converted_dict[key] = int(value.strip())
+                        except (TypeError, ValueError):
+                            converted_dict[key] = None
 
         return converted_dict

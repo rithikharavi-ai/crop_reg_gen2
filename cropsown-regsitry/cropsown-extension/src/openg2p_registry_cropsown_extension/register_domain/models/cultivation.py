@@ -40,6 +40,7 @@ class G2PCultivation:
     actual_growth_duration_days: Mapped[int] = mapped_column(Integer, nullable=True)
     actual_seed_class: Mapped[SeedClassEnum] = mapped_column(String, nullable=True) # SeedClassEnum
     actual_seed_source: Mapped[SeedSourceEnum] = mapped_column(String, nullable=True) # SeedSourceEnum
+    seed_variety: Mapped[str] = mapped_column(String, nullable=True)
     actual_seed_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
     actual_fertilizer_type: Mapped[str] = mapped_column(String, nullable=True) # Attribute lookup (FERTILIZER_TYPE)
     actual_fertilizer_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
@@ -62,6 +63,9 @@ class G2PCultivation:
     actual_planted_date_ec: Mapped[str] = mapped_column(String, nullable=True)
     actual_fertilizer_sack: Mapped[float] = mapped_column(Numeric, nullable=True)
     is_crop_changed: Mapped[bool] = mapped_column(Boolean, nullable=True)
+
+
+
     da_name: Mapped[str] = mapped_column(String, nullable=True)
     da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_name: Mapped[str] = mapped_column(String, nullable=True)

@@ -17,10 +17,10 @@ class G2PRegisterDomainServiceSowing(G2PRegisterDomainService):
             validate_alphabetical_name(record.get("da_name"), "DA Name")
             validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
             validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
-            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
             self._validate_sowing_date(record)
             self._validate_area_sown(record)
-            self._validate_seed_quantity(record)
+            from .domain_compute_utils import compute_ec_date
+            compute_ec_date(record, "sowing_date", "sowing_date_ec")
             if session:
                 await self._validate_land_id_matches_planning(record, session=session)
 
@@ -31,34 +31,76 @@ class G2PRegisterDomainServiceSowing(G2PRegisterDomainService):
 
         submission_id = record.get("submission_id")
         link_internal_record_id = record.get("link_internal_record_id")
+        fayda_fan_id = record.get("fayda_fan_id")
 
-        if not submission_id and not link_internal_record_id:
+        if not submission_id and not link_internal_record_id and not fayda_fan_id:
             return
 
         from sqlalchemy import text
 
-        planning_land_ids = set()
+        valid_land_ids = set()
 
+        # 1. Check current submission intake tables for Planning and Cultivation
         if submission_id:
-            res = await session.execute(
+            res_p = await session.execute(
                 text("SELECT land_id FROM g2p_intake_form_plannings WHERE submission_id = :sub_id"),
                 {"sub_id": submission_id}
             )
-            for row in res.fetchall():
+            for row in res_p.fetchall():
                 if row[0] and str(row[0]).strip():
-                    planning_land_ids.add(str(row[0]).strip())
+                    valid_land_ids.add(str(row[0]).strip())
 
-        if link_internal_record_id:
-            res = await session.execute(
-                text("SELECT land_id FROM g2p_register_plannings WHERE link_internal_record_id = :rec_id AND record_status = 'ACTIVE'"),
-                {"rec_id": link_internal_record_id}
+            res_c = await session.execute(
+                text("SELECT land_id FROM g2p_intake_form_cultivations WHERE submission_id = :sub_id"),
+                {"sub_id": submission_id}
             )
-            for row in res.fetchall():
+            for row in res_c.fetchall():
                 if row[0] and str(row[0]).strip():
-                    planning_land_ids.add(str(row[0]).strip())
+                    valid_land_ids.add(str(row[0]).strip())
 
-        if str(land_id).strip() not in planning_land_ids:
-            validation_error(f"Land ID '{land_id}' in Sowing does not match any Land ID specified in Crop Planning.")
+            if not fayda_fan_id:
+                res_f = await session.execute(
+                    text("SELECT fayda_fan_id FROM g2p_intake_form_crop_sowns WHERE submission_id = :sub_id AND fayda_fan_id IS NOT NULL"),
+                    {"sub_id": submission_id}
+                )
+                f_row = res_f.fetchone()
+                if f_row and f_row[0]:
+                    fayda_fan_id = f_row[0]
+
+        # 2. Check registered DB records by link_internal_record_id or Fayda ID
+        master_ids = set()
+        if link_internal_record_id:
+            master_ids.add(str(link_internal_record_id))
+
+        if fayda_fan_id:
+            res_m = await session.execute(
+                text("SELECT internal_record_id::text FROM g2p_register_crop_sowns WHERE fayda_fan_id = :fayda AND record_status = 'ACTIVE'"),
+                {"fayda": fayda_fan_id}
+            )
+            for row in res_m.fetchall():
+                if row[0]:
+                    master_ids.add(str(row[0]))
+
+        if master_ids:
+            res_db_p = await session.execute(
+                text("SELECT land_id FROM g2p_register_plannings WHERE link_internal_record_id = ANY(:m_ids) AND record_status = 'ACTIVE'"),
+                {"m_ids": list(master_ids)}
+            )
+            for row in res_db_p.fetchall():
+                if row[0] and str(row[0]).strip():
+                    valid_land_ids.add(str(row[0]).strip())
+
+            res_db_c = await session.execute(
+                text("SELECT land_id FROM g2p_register_cultivations WHERE link_internal_record_id = ANY(:m_ids) AND record_status = 'ACTIVE'"),
+                {"m_ids": list(master_ids)}
+            )
+            for row in res_db_c.fetchall():
+                if row[0] and str(row[0]).strip():
+                    valid_land_ids.add(str(row[0]).strip())
+
+        if str(land_id).strip() not in valid_land_ids:
+            msg_fayda = f" for Fayda ID '{fayda_fan_id}'" if fayda_fan_id else ""
+            validation_error(f"Land ID '{land_id}' in Sowing does not match any Land ID specified in Crop Planning or Cultivation{msg_fayda}.")
 
     def _validate_sowing_date(self, record: dict) -> None:
         sowing_date = parse_date(record.get("sowing_date"))
@@ -70,11 +112,6 @@ class G2PRegisterDomainServiceSowing(G2PRegisterDomainService):
         if area_sown is not None and area_sown <= 0:
             validation_error("area_sown must be greater than zero when provided")
 
-    def _validate_seed_quantity(self, record: dict) -> None:
-        seed_qty = as_float(record.get("actual_seed_qty"))
-        if seed_qty is not None and seed_qty < 0:
-            validation_error("actual_seed_qty must not be negative")
-
     def construct_search_text(self, payload: dict, extra: list[str] = None) -> str:
         _logger.info("Constructing search text for sowing")
 
@@ -85,7 +122,6 @@ class G2PRegisterDomainServiceSowing(G2PRegisterDomainService):
             "commodity",
             "crop_variety",
             "crop_category",
-            "sowing_status",
             "area_sown",
             "seed_class",
             "fertilizer_type",

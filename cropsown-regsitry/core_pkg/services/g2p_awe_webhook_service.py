@@ -88,7 +88,13 @@ class G2PAweWebhookService(BaseService):
         timestamp_header: str | None,
         header_event_id: str | None,
     ) -> AweWebhookDecisionResponse:
-        secret = (_config.awe_callback_hmac_secret or "").strip()
+        import os
+        secret = (
+            _config.awe_callback_hmac_secret
+            or os.environ.get("REGISTRY_STAFF_PORTAL_API_AWE_CALLBACK_HMAC_SECRET")
+            or os.environ.get("REGISTRY_CORE_AWE_CALLBACK_HMAC_SECRET")
+            or ""
+        ).strip()
         verify_awe_webhook_signature(
             secret=secret,
             body=raw_body,
@@ -255,6 +261,8 @@ class G2PAweWebhookService(BaseService):
                 session,
                 approved_by=event.actor,
             )
+            await session.commit()
+            await intake_service.process_submission_register_ingest(submission.submission_id)
             return
 
         if event.event_type == "request_rejected":

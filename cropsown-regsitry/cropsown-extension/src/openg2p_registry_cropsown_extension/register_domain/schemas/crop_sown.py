@@ -44,8 +44,8 @@ class G2PSchemaCropSown:
 
     # Record lifecycle & field staff
     status: Optional[str] = None
-    production_year: Optional[str] = None
-    season: Optional[str] = None
+    crop_year: Optional[str] = None
+    production_season: Optional[str] = None
     lifecycle_stage: Optional[LifecycleStageEnum] = None
 
 

@@ -1113,8 +1113,10 @@ class G2PScoreComputeService(BaseService):
         """
         class_name = f"{class_prefix}{register_mnemonic}"
         try:
+            import os
+            ext_mod = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
             module = importlib.import_module(
-                "openg2p_registry_extensions.register_domain.models"
+                f"{ext_mod}.register_domain.models"
             )
             return getattr(module, class_name)
         except (AttributeError, ModuleNotFoundError) as exc:

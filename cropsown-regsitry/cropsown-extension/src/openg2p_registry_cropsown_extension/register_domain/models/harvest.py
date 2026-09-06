@@ -31,8 +31,6 @@ class G2PHarvest:
     post_harvest_loss_pct: Mapped[float] = mapped_column(Numeric, nullable=True)
     qty_stored: Mapped[float] = mapped_column(Numeric, nullable=True)
     qty_sold: Mapped[float] = mapped_column(Numeric, nullable=True)
-    yield_per_ha: Mapped[float] = mapped_column(Numeric, nullable=True)
-    harvested_by: Mapped[str] = mapped_column(String, nullable=True)          # Attribute lookup (MACHINERY)
 
     cluster_crop_maturity_status: Mapped[CropMaturityStatusEnum] = mapped_column(String, nullable=True)
     cluster_harvest_date: Mapped[str] = mapped_column(Date, nullable=True)
@@ -51,12 +49,15 @@ class G2PHarvest:
     temporary_land_id: Mapped[str] = mapped_column(String, nullable=True)
     sync_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     harvest_date_ec: Mapped[str] = mapped_column(String, nullable=True)
+
+
+
+
+
     da_name: Mapped[str] = mapped_column(String, nullable=True)
     da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
-
-
 
 # All Register classes should have the prefix G2PRegister
 class G2PRegisterHarvest(G2PRegister, G2PHarvest):

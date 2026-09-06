@@ -11,7 +11,6 @@ from .enums import (
     CroppingSystemEnum,
     SeedClassEnum,
     SeedSourceEnum,
-    SowingStatusEnum,
     CropMaturityStatusEnum,
     GrowthStageEnum,
     SeverityLevelEnum,

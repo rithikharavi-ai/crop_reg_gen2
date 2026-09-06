@@ -15,10 +15,10 @@ class G2PRegisterDomainServiceCluster(G2PRegisterDomainService):
 
             from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
             validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
-            validate_alphabetical_name(record.get("da_name"), "DA Name")
-            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
-            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
-            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
+            # validate_alphabetical_name(record.get("da_name"), "DA Name")
+            # validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
+            # validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
+            # validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
             compute_season_parts(record)
             compute_cluster_area(record)
             self._validate_cluster_area(record)
@@ -73,32 +73,67 @@ class G2PRegisterDomainServiceCluster(G2PRegisterDomainService):
         from sqlalchemy import text
 
         planning_land_ids = set()
+        total_planned_area = 0.0
+        max_land_area = 0.0
 
-        # 1. Fetch Land IDs saved in intake form plannings for this submission
+        # 1. Fetch Land IDs and Areas saved in intake form plannings for this submission
         if submission_id:
             res = await session.execute(
-                text("SELECT land_id FROM g2p_intake_form_plannings WHERE submission_id = :sub_id"),
+                text("SELECT land_id, land_area, planned_area FROM g2p_intake_form_plannings WHERE submission_id = :sub_id"),
                 {"sub_id": submission_id}
             )
             for row in res.fetchall():
-                if row[0] and str(row[0]).strip():
-                    planning_land_ids.add(str(row[0]).strip())
+                l_id = str(row[0]).strip() if row[0] else ""
+                if l_id:
+                    planning_land_ids.add(l_id)
+                    if l_id == str(cluster_land_id).strip():
+                        if row[1] is not None:
+                            max_land_area = max(max_land_area, as_float(row[1]) or 0.0)
+                        if row[2] is not None:
+                            total_planned_area += (as_float(row[2]) or 0.0)
 
-        # 2. Fetch Land IDs from active registered plannings (if existing record)
+        # 2. Fetch Land IDs and Areas from active registered plannings (if existing record)
         if link_internal_record_id:
             res = await session.execute(
-                text("SELECT land_id FROM g2p_register_plannings WHERE link_internal_record_id = :link_id AND record_status = 'ACTIVE'"),
+                text("SELECT land_id, land_area, planned_area FROM g2p_register_plannings WHERE link_internal_record_id = :link_id AND record_status = 'ACTIVE'"),
                 {"link_id": link_internal_record_id}
             )
             for row in res.fetchall():
-                if row[0] and str(row[0]).strip():
-                    planning_land_ids.add(str(row[0]).strip())
+                l_id = str(row[0]).strip() if row[0] else ""
+                if l_id:
+                    planning_land_ids.add(l_id)
+                    if l_id == str(cluster_land_id).strip():
+                        if row[1] is not None:
+                            max_land_area = max(max_land_area, as_float(row[1]) or 0.0)
+                        if row[2] is not None:
+                            total_planned_area += (as_float(row[2]) or 0.0)
 
-        # 3. Validate match
+        # 3. Validate match (if planning records exist)
         if planning_land_ids and str(cluster_land_id).strip() not in planning_land_ids:
             validation_error(
                 f"Land ID '{cluster_land_id}' in Cluster Information does not match any Land ID specified in Crop Planning ({', '.join(planning_land_ids)})."
             )
+
+        # If max_land_area was not provided in planning, fall back to land_area on cluster record
+        if max_land_area == 0.0:
+            max_land_area = as_float(record.get("land_area")) or 0.0
+
+        # Calculate remaining available land area for cluster (Option A)
+        remaining_land = max(0.0, max_land_area - total_planned_area) if max_land_area > 0 else 0.0
+
+        # 4. Validate Cluster Area / Plan does not exceed remaining land area
+        cluster_area = as_float(record.get("cluster_area_hectare")) or as_float(record.get("cluster_plan"))
+        if cluster_area is not None and max_land_area > 0:
+            if cluster_area > remaining_land + 1e-6:
+                if total_planned_area > 0:
+                    validation_error(
+                        f"Cluster Area ({cluster_area:g} ha) for Land ID '{cluster_land_id}' exceeds the remaining available land area ({remaining_land:g} ha). "
+                        f"Total Land Area is {max_land_area:g} ha and {total_planned_area:g} ha is already planned."
+                    )
+                else:
+                    validation_error(
+                        f"Cluster Area ({cluster_area:g} ha) for Land ID '{cluster_land_id}' exceeds Total Land Area ({max_land_area:g} ha)."
+                    )
 
     def construct_search_text(self, payload: dict, extra: list[str] = None) -> str:
         _logger.info("Constructing search text for cluster")

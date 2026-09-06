@@ -15,10 +15,10 @@ class G2PRegisterDomainServiceCultivationCluster(G2PRegisterDomainService):
 
             from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
             validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
-            validate_alphabetical_name(record.get("da_name"), "DA Name")
-            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
-            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
-            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
+            # validate_alphabetical_name(record.get("da_name"), "DA Name")
+            # validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
+            # validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
+            # validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
             compute_season_parts(record)
             compute_cluster_area(record)
             self._validate_cluster_area(record)
@@ -73,32 +73,67 @@ class G2PRegisterDomainServiceCultivationCluster(G2PRegisterDomainService):
         from sqlalchemy import text
 
         cultivation_land_ids = set()
+        total_cultivated_area = 0.0
+        max_land_area = 0.0
 
         # 1. Fetch Land IDs saved in intake form cultivations for this submission
         if submission_id:
             res = await session.execute(
-                text("SELECT land_id FROM g2p_intake_form_cultivations WHERE submission_id = :sub_id"),
+                text("SELECT land_id, land_area, actual_crop_area FROM g2p_intake_form_cultivations WHERE submission_id = :sub_id"),
                 {"sub_id": submission_id}
             )
             for row in res.fetchall():
-                if row[0] and str(row[0]).strip():
-                    cultivation_land_ids.add(str(row[0]).strip())
+                l_id = str(row[0]).strip() if row[0] else ""
+                if l_id:
+                    cultivation_land_ids.add(l_id)
+                    if l_id == str(cluster_land_id).strip():
+                        if row[1] is not None:
+                            max_land_area = max(max_land_area, as_float(row[1]) or 0.0)
+                        if row[2] is not None:
+                            total_cultivated_area += (as_float(row[2]) or 0.0)
 
         # 2. Fetch Land IDs from active registered cultivations (if existing record)
         if link_internal_record_id:
             res = await session.execute(
-                text("SELECT land_id FROM g2p_register_cultivations WHERE link_internal_record_id = :link_id AND record_status = 'ACTIVE'"),
+                text("SELECT land_id, land_area, actual_crop_area FROM g2p_register_cultivations WHERE link_internal_record_id = :link_id AND record_status = 'ACTIVE'"),
                 {"link_id": link_internal_record_id}
             )
             for row in res.fetchall():
-                if row[0] and str(row[0]).strip():
-                    cultivation_land_ids.add(str(row[0]).strip())
+                l_id = str(row[0]).strip() if row[0] else ""
+                if l_id:
+                    cultivation_land_ids.add(l_id)
+                    if l_id == str(cluster_land_id).strip():
+                        if row[1] is not None:
+                            max_land_area = max(max_land_area, as_float(row[1]) or 0.0)
+                        if row[2] is not None:
+                            total_cultivated_area += (as_float(row[2]) or 0.0)
 
-        # 3. Validate match
+        # 3. Validate match (if cultivation records exist)
         if cultivation_land_ids and str(cluster_land_id).strip() not in cultivation_land_ids:
             validation_error(
                 f"Land ID '{cluster_land_id}' in Cultivation Cluster does not match any Land ID specified in Cultivation/Land Preparation ({', '.join(cultivation_land_ids)})."
             )
+
+        # If max_land_area was not provided in cultivation, fall back to land_area on cluster record
+        if max_land_area == 0.0:
+            max_land_area = as_float(record.get("land_area")) or 0.0
+
+        # Calculate remaining available land area for cluster (Option A)
+        remaining_land = max(0.0, max_land_area - total_cultivated_area) if max_land_area > 0 else 0.0
+
+        # 4. Validate Cultivation Cluster Area / Plan does not exceed remaining land area
+        cluster_area = as_float(record.get("cluster_area_hectare")) or as_float(record.get("cluster_plan"))
+        if cluster_area is not None and max_land_area > 0:
+            if cluster_area > remaining_land + 1e-6:
+                if total_cultivated_area > 0:
+                    validation_error(
+                        f"Cultivation Cluster Area ({cluster_area:g} ha) for Land ID '{cluster_land_id}' exceeds the remaining available land area ({remaining_land:g} ha). "
+                        f"Total Land Area is {max_land_area:g} ha and {total_cultivated_area:g} ha is already cultivated."
+                    )
+                else:
+                    validation_error(
+                        f"Cultivation Cluster Area ({cluster_area:g} ha) for Land ID '{cluster_land_id}' exceeds Total Land Area ({max_land_area:g} ha)."
+                    )
 
     def construct_search_text(self, payload: dict, extra: list[str] = None) -> str:
         _logger.info("Constructing search text for cluster")

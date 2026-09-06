@@ -31,6 +31,7 @@ class G2PRegisterDomainServiceCultivation(G2PRegisterDomainService):
             self._validate_actual_planted_date(record)
             self._validate_actual_crop_area(record)
             compute_ec_date(record, "actual_planted_date", "actual_planted_date_ec")
+        self._validate_cumulative_actual_crop_area(records)
 
     def _validate_actual_planted_date(self, record: dict) -> None:
         planted_date = parse_date(record.get("actual_planted_date"))
@@ -46,6 +47,22 @@ class G2PRegisterDomainServiceCultivation(G2PRegisterDomainService):
         if crop_area is not None and land_area is not None:
             if crop_area > land_area:
                 validation_error(f"Actual Crop Area ({crop_area} ha) cannot be greater than Total Land Area ({land_area} ha).")
+
+    def _validate_cumulative_actual_crop_area(self, records: list[dict]) -> None:
+        by_land: dict[str, list[dict]] = {}
+        for record in records:
+            land_id = str(record.get("land_id") or "").strip()
+            if land_id:
+                by_land.setdefault(land_id, []).append(record)
+
+        for land_id, land_records in by_land.items():
+            total_crop_area = sum(as_float(r.get("actual_crop_area")) or 0.0 for r in land_records)
+            land_area = next((as_float(r.get("land_area")) for r in land_records if as_float(r.get("land_area")) is not None), None)
+            if land_area is not None and total_crop_area > land_area + 1e-6:
+                validation_error(
+                    f"Total Actual Crop Area ({total_crop_area:g} ha) across all records for Land ID '{land_id}' "
+                    f"exceeds Total Land Area ({land_area:g} ha)."
+                )
 
     def _validate_date_in_season(self, record: dict, field: str) -> None:
         """Odoo: `_check_season_crop_required` — the date must fall inside the
@@ -73,6 +90,7 @@ class G2PRegisterDomainServiceCultivation(G2PRegisterDomainService):
             "actual_crop_area",
             "actual_seed_class",
             "actual_seed_source",
+            "seed_variety",
             "actual_fertilizer_type",
             "water_source",
             "water_source_method",

@@ -56,11 +56,11 @@ class G2PCropSown:
 
     # ── Record lifecycle & field staff ────────────────────────────────────────
     status: Mapped[str] = mapped_column(String, nullable=True)                # Attribute lookup (APPROVAL_STATUS)
-    production_year: Mapped[str] = mapped_column(String, nullable=True)
+    crop_year: Mapped[str] = mapped_column(String, nullable=True)
     # A registration covers one cropping season, and the season is part of the
     # functional id (REG/S1/2026/00001), so it has to live on the root record —
     # the id is minted before any crop line exists to derive it from.
-    season: Mapped[str] = mapped_column(String, nullable=True)                # Attribute lookup (CROP_SEASON)
+    production_season: Mapped[str] = mapped_column(String, nullable=True)                # Attribute lookup (CROP_SEASON)
     lifecycle_stage: Mapped[LifecycleStageEnum] = mapped_column(String, nullable=True)  # LifecycleStageEnum
 
     # ── Per-stage approval state, as the Odoo registry tracks it ─────────────

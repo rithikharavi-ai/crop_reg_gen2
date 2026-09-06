@@ -50,8 +50,22 @@ class G2PInfestation:
     fungicide_name: Mapped[str] = mapped_column(String, nullable=True)
     fungicide_type: Mapped[str] = mapped_column(String, nullable=True)
 
+    nutrient_type: Mapped[str] = mapped_column(String, nullable=True)
+    nutrient_name: Mapped[str] = mapped_column(String, nullable=True)
+    nutrient_control_method: Mapped[str] = mapped_column(String, nullable=True)
+    nutrient_fertilizer_type: Mapped[str] = mapped_column(String, nullable=True)
+    nutrient_fertilizer_name: Mapped[str] = mapped_column(String, nullable=True)
+    nutrient_frequency_of_application: Mapped[str] = mapped_column(String, nullable=True)
+
+    shock_type: Mapped[str] = mapped_column(String, nullable=True)
+    shock_event_name: Mapped[str] = mapped_column(String, nullable=True)
+    climate_control_method: Mapped[str] = mapped_column(String, nullable=True)
+    recovery_input_type: Mapped[str] = mapped_column(String, nullable=True)
+    recovery_input_name: Mapped[str] = mapped_column(String, nullable=True)
+    climate_frequency_of_application: Mapped[str] = mapped_column(String, nullable=True)
+
     severity_level: Mapped[SeverityLevelEnum] = mapped_column(String, nullable=True) # SeverityLevelEnum
-    estimated_damage_pct: Mapped[float] = mapped_column(Numeric, nullable=True)
+    estimated_damage_pct: Mapped[float] = mapped_column(Numeric(5, 2), nullable=True)
     observation_date: Mapped[str] = mapped_column(Date, nullable=True)
     geo_tagged_photo_document_id: Mapped[str] = mapped_column(String, nullable=True)
     action_taken: Mapped[str] = mapped_column(String, nullable=True)
@@ -60,10 +74,7 @@ class G2PInfestation:
     sync_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     observation_date_ec: Mapped[str] = mapped_column(String, nullable=True)
 
-    da_name: Mapped[str] = mapped_column(String, nullable=True)
-    da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
-    supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
-    supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
+
 
 
 

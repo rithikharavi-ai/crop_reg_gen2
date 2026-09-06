@@ -38,15 +38,24 @@ class G2PSchemaInfestation:
     weedicide_frequency: Optional[str] = None
     fungicide_name: Optional[str] = None
     fungicide_type: Optional[str] = None
+    nutrient_type: Optional[str] = None
+    nutrient_name: Optional[str] = None
+    nutrient_control_method: Optional[str] = None
+    nutrient_fertilizer_type: Optional[str] = None
+    nutrient_fertilizer_name: Optional[str] = None
+    nutrient_frequency_of_application: Optional[str] = None
+    shock_type: Optional[str] = None
+    shock_event_name: Optional[str] = None
+    climate_control_method: Optional[str] = None
+    recovery_input_type: Optional[str] = None
+    recovery_input_name: Optional[str] = None
+    climate_frequency_of_application: Optional[str] = None
     severity_level: Optional[SeverityLevelEnum] = None
-    estimated_damage_pct: Optional[float] = None
+    estimated_damage_pct: Optional[str] = None
     observation_date: Optional[date] = None
     geo_tagged_photo_document_id: Optional[str] = None
     action_taken: Optional[str] = None
-    da_name: Optional[str] = None
-    da_mobile_number: Optional[str] = None
-    supervisor_name: Optional[str] = None
-    supervisor_mobile_number: Optional[str] = None
+
 
 
 class G2PRegisterSchemaInfestation(G2PRegisterBaseSchema, G2PSchemaInfestation):

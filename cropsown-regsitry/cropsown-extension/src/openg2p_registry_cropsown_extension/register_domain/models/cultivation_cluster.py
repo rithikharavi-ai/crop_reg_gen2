@@ -21,7 +21,6 @@ class G2PCultivationCluster:
     # ── Plot: each line records the land it was worked on (Gen1 puts
     # land_info_id and its attributes on the line, not the header) ───────────
     land_id: Mapped[str] = mapped_column(String, nullable=True)
-    land_area: Mapped[float] = mapped_column(Numeric, nullable=True)
     cluster_name: Mapped[str] = mapped_column(String, nullable=True)
     agro_ecological_zone: Mapped[AgroEcologicalZoneEnum] = mapped_column(String, nullable=True) # AgroEcologicalZoneEnum
     season: Mapped[str] = mapped_column(String, nullable=True)                # Attribute lookup (CROP_SEASON)
@@ -53,10 +52,7 @@ class G2PCultivationCluster:
 
     # Planned figures, and the actuals Gen1 rolls up from the actual lines.
     cluster_plan: Mapped[float] = mapped_column(Numeric, nullable=True)
-    da_name: Mapped[str] = mapped_column(String, nullable=True)
-    da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
-    supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
-    supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
+
     collected_by_combiner: Mapped[float] = mapped_column(Numeric, nullable=True)
 
 

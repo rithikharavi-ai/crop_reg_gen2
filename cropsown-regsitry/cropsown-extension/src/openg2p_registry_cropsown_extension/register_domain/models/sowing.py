@@ -15,7 +15,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..services import G2PRegisterDomainServiceSowing
-from .enums import SeedClassEnum, SowingStatusEnum
+from .enums import SeedClassEnum
 
 
 class G2PSowing:
@@ -24,10 +24,8 @@ class G2PSowing:
     land_id: Mapped[str] = mapped_column(String, nullable=True)
     season: Mapped[str] = mapped_column(String, nullable=True)                # Attribute lookup (CROP_SEASON)
     commodity: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (CROP_COMMODITY)
-    sowing_status: Mapped[SowingStatusEnum] = mapped_column(String, nullable=True) # SowingStatusEnum
     area_sown: Mapped[float] = mapped_column(Numeric, nullable=True)
     sowing_date: Mapped[str] = mapped_column(Date, nullable=True)
-    actual_seed_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
     fertilizer_type: Mapped[str] = mapped_column(String, nullable=True)       # Attribute lookup (FERTILIZER_TYPE)
     fertilizer_qty: Mapped[float] = mapped_column(Numeric, nullable=True)
     cluster_status: Mapped[list[str]] = mapped_column(JSONB, nullable=True)        # Attribute lookup (CLUSTER_STATUS)
@@ -39,19 +37,21 @@ class G2PSowing:
     cluster_area_hectare: Mapped[float] = mapped_column(Numeric, nullable=True)
     cluster_season: Mapped[str] = mapped_column(String, nullable=True)
     cluster_area_sown: Mapped[float] = mapped_column(Numeric, nullable=True)
-    cluster_sowing_status: Mapped[str] = mapped_column(String, nullable=True)
-    cluster_has_pest_disease: Mapped[str] = mapped_column(String, nullable=True)
+    cluster_has_pest_disease: Mapped[bool] = mapped_column(Boolean, nullable=True)
 
     temporary_land_id: Mapped[str] = mapped_column(String, nullable=True)
     sync_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     sowing_date_ec: Mapped[str] = mapped_column(String, nullable=True)
     geo_tagged_photo_document_id: Mapped[str] = mapped_column(String, nullable=True)
+
+
+
+
+
     da_name: Mapped[str] = mapped_column(String, nullable=True)
     da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
     supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
-
-
 
 # All Register classes should have the prefix G2PRegister
 class G2PRegisterSowing(G2PRegister, G2PSowing):
@@ -96,3 +96,7 @@ class G2PIntakeFormSowing(G2PIntakeForm, G2PRegister, G2PSowing):
     def get_record_name_fields(self) -> str:
         """Return sowing record_name from domain service implementation."""
         return G2PRegisterDomainServiceSowing().construct_record_name(self.to_dict())
+
+
+
+

@@ -40,13 +40,14 @@ class G2PSchemaPlanning:
     local_name: Optional[str] = None
     scientific_name: Optional[str] = None
     plot_category: Optional[str] = None
-    cropping_system: Optional[CroppingSystemEnum] = None
+    cropping_system: Optional[str] = None
     planned_date: Optional[date] = None
     planned_area: Optional[float] = None
     growth_duration_days: Optional[int] = None
     expected_yield: Optional[float] = None
-    seed_class: Optional[SeedClassEnum] = None
-    seed_source: Optional[SeedSourceEnum] = None
+    seed_class: Optional[str] = None
+    seed_source: Optional[str] = None
+    seed_variety: Optional[str] = None
     planned_seed_qty: Optional[float] = None
     planned_fertilizer_type: Optional[str] = None
     planned_fertilizer_qty: Optional[float] = None
@@ -61,13 +62,17 @@ class G2PSchemaPlanning:
     end_month: Optional[int] = None
     end_day: Optional[int] = None
     planned_date_ec: Optional[str] = None
+
+    cluster_details: Optional[List[Dict[str, Any]]] = None
+
+
+
+
+
     da_name: Optional[str] = None
     da_mobile_number: Optional[str] = None
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
-    cluster_details: Optional[List[Dict[str, Any]]] = None
-
-
 
 
 class G2PRegisterSchemaPlanning(G2PRegisterBaseSchema, G2PSchemaPlanning):

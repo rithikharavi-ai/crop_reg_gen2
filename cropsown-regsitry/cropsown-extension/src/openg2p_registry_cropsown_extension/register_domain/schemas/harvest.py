@@ -25,8 +25,6 @@ class G2PSchemaHarvest:
     post_harvest_loss_pct: Optional[float] = None
     qty_stored: Optional[float] = None
     qty_sold: Optional[float] = None
-    yield_per_ha: Optional[float] = None
-    harvested_by: Optional[str] = None
 
     cluster_crop_maturity_status: Optional[CropMaturityStatusEnum] = None
     cluster_harvest_date: Optional[date] = None
@@ -41,11 +39,15 @@ class G2PSchemaHarvest:
     fertilizer_efficiency: Optional[float] = None
     land_utilization_rate: Optional[float] = None
     seed_productivity: Optional[float] = None
+
+
+
+
+
     da_name: Optional[str] = None
     da_mobile_number: Optional[str] = None
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
-
 
 
 class G2PRegisterSchemaHarvest(G2PRegisterBaseSchema, G2PSchemaHarvest):

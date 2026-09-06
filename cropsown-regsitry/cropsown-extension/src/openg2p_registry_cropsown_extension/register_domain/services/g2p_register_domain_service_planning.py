@@ -30,6 +30,7 @@ class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
             self._validate_planned_area(record)
             self._validate_planned_date(record)
             compute_ec_date(record, "planned_date", "planned_date_ec")
+        self._validate_cumulative_planned_area(records)
         self._validate_no_duplicate_commodity_season(records)
 
     def _validate_planned_area(self, record: dict) -> None:
@@ -42,6 +43,22 @@ class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
             if planned_area > land_area:
                 validation_error(f"Planned Crop Area ({planned_area} ha) cannot be greater than Total Land Area ({land_area} ha).")
 
+    def _validate_cumulative_planned_area(self, records: list[dict]) -> None:
+        by_land: dict[str, list[dict]] = {}
+        for record in records:
+            land_id = str(record.get("land_id") or "").strip()
+            if land_id:
+                by_land.setdefault(land_id, []).append(record)
+
+        for land_id, land_records in by_land.items():
+            total_planned = sum(as_float(r.get("planned_area")) or 0.0 for r in land_records)
+            land_area = next((as_float(r.get("land_area")) for r in land_records if as_float(r.get("land_area")) is not None), None)
+            if land_area is not None and total_planned > land_area + 1e-6:
+                validation_error(
+                    f"Total Planned Crop Area ({total_planned:g} ha) across all records for Land ID '{land_id}' "
+                    f"exceeds Total Land Area ({land_area:g} ha)."
+                )
+
     def _validate_planned_date(self, record: dict) -> None:
         planned_date = parse_date(record.get("planned_date"))
         if planned_date is not None and planned_date.year > date.today().year + 1:
@@ -52,9 +69,10 @@ class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
         for record in records:
             commodity = str(record.get("commodity") or "").strip()
             season = str(record.get("season") or "").strip()
+            land_id = str(record.get("land_id") or "").strip()
             if not commodity:
                 continue
-            key = (commodity, season, land)
+            key = (commodity, season, land_id)
             if key in seen:
                 validation_error(
                     "Duplicate commodity entries for the same season and land are not allowed"
@@ -88,6 +106,7 @@ class G2PRegisterDomainServicePlanning(G2PRegisterDomainService):
             "planned_area",
             "seed_class",
             "seed_source",
+            "seed_variety",
             "planned_fertilizer_type",
             "water_source",
             "water_source_method",

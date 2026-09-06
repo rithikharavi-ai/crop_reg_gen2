@@ -47,9 +47,9 @@ class G2PCompletionScoreService(BaseService):
     # ---------- Domain class resolution ----------
 
     def _get_register_class(self, register_mnemonic: str):
-        module = importlib.import_module(
-            "openg2p_registry_extensions.register_domain.models"
-        )
+        import os
+        ext_mod = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+        module = importlib.import_module(f"{ext_mod}.register_domain.models")
         class_name = f"G2PRegister{register_mnemonic}"
         return getattr(module, class_name)
 
@@ -126,7 +126,9 @@ class G2PCompletionScoreService(BaseService):
             f"enqueue_completion_score_computations_for_submissions called for submission_id: {submission_id}, "
             f"section_register_ids: {section_register_ids}"
         )
-        module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+        import os
+        ext_mod = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+        module = importlib.import_module(f"{ext_mod}.register_domain.models")
 
         for section_register_id in section_register_ids:
             register_definition: G2PRegisterDefinition = (

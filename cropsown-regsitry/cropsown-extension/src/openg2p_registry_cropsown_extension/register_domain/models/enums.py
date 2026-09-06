@@ -37,16 +37,12 @@ class SeedSourceEnum(StrEnum):
     FARMER_TO_FARMER_EXCHANGE_SAVED = "FARMER-TO-FARMER EXCHANGE / SAVED"
 
 
-class SowingStatusEnum(StrEnum):
-    NOT_SOWN = "NOT_SOWN"
-    SOWN = "SOWN"
-
 
 class CropMaturityStatusEnum(StrEnum):
-    IMMATURE = "IMMATURE"
-    MATURING = "MATURING"
     READY_FOR_HARVEST = "READY_FOR_HARVEST"
-    HARVESTED = "HARVESTED"
+    NOT_YET_READY_FOR_HARVEST = "NOT_YET_READY_FOR_HARVEST"
+
+
 
 
 class GrowthStageEnum(StrEnum):

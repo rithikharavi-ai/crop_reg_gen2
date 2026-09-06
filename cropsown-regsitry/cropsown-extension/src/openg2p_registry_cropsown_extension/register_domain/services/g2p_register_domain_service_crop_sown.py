@@ -27,18 +27,14 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
 
             from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
             validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
-            validate_alphabetical_name(record.get("da_name"), "DA Name")
-            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
-            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
-            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
-            self._validate_production_year(record)
+            self._validate_crop_year(record)
             self._validate_farmer_id(record)
             self._validate_fayda_fan_id(record)
 
-    def _validate_production_year(self, record: dict) -> None:
-        year = as_int(record.get("production_year"))
+    def _validate_crop_year(self, record: dict) -> None:
+        year = as_int(record.get("crop_year"))
         if year is not None and year > date.today().year:
-            validation_error("production_year must not be in the future")
+            validation_error("crop_year must not be in the future")
 
 
     def _validate_farmer_id(self, record: dict) -> None:
@@ -75,7 +71,8 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             "farmer_id",
             "fayda_fan_id",
             "status",
-            "production_year",
+            "crop_year",
+            "production_season",
             "lifecycle_stage",
             "region",
             "zone",
@@ -228,19 +225,23 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
                         if md_row:
                             display_name = md_row[0]
             
-            setattr(record, name_field, display_name)
+            setattr(record, name_field, display_name or value_id)
 
 
     async def _check_unique_farmer_per_year(
         self, change_request: G2PRegisterChangeRequest, session: AsyncSession
     ) -> None:
         """Odoo: `_check_unique_farmer_id` — one registration per farmer per
-        production year."""
+        crop year."""
         from ..models import G2PRegisterCropSown
 
         record = await session.get(G2PRegisterCropSown, change_request.internal_record_id)
-        if record is None or not record.farmer_id or not record.production_year:
+        if record is None or not record.farmer_id or not record.crop_year:
             return
+
+        exclude_ids = [record.internal_record_id]
+        if getattr(change_request, "subject_internal_record_id", None):
+            exclude_ids.append(change_request.subject_internal_record_id)
 
         clash = (
             await session.execute(
@@ -248,8 +249,8 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
                 .select_from(G2PRegisterCropSown)
                 .where(
                     G2PRegisterCropSown.farmer_id == record.farmer_id,
-                    G2PRegisterCropSown.production_year == record.production_year,
-                    G2PRegisterCropSown.internal_record_id != record.internal_record_id,
+                    G2PRegisterCropSown.crop_year == record.crop_year,
+                    G2PRegisterCropSown.internal_record_id.notin_(exclude_ids),
                     G2PRegisterCropSown.record_status == "ACTIVE",
                 )
             )
@@ -257,7 +258,7 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
         if clash:
             validation_error(
                 f"Farmer {record.farmer_id} already has a crop sown record for "
-                f"{record.production_year}"
+                f"{record.crop_year}"
             )
 
     async def _check_crop_area_within_plot(
@@ -345,11 +346,12 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             if lid and str(lid).strip():
                 cultivation_land_ids.add(str(lid).strip())
 
-        if change_request.submission_id:
+        sub_id = getattr(change_request, "submission_id", None)
+        if sub_id:
             intake_planning = (
                 await session.execute(
                     select(G2PIntakeFormPlanning).where(
-                        G2PIntakeFormPlanning.submission_id == change_request.submission_id
+                        G2PIntakeFormPlanning.submission_id == sub_id
                     )
                 )
             ).scalars().all()
@@ -361,7 +363,7 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             intake_cultivation = (
                 await session.execute(
                     select(G2PIntakeFormCultivation).where(
-                        G2PIntakeFormCultivation.submission_id == change_request.submission_id
+                        G2PIntakeFormCultivation.submission_id == sub_id
                     )
                 )
             ).scalars().all()
@@ -382,11 +384,11 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             ).scalars().all()
             cluster_rows.extend(c_rows)
 
-            if change_request.submission_id:
+            if sub_id:
                 ic_rows = (
                     await session.execute(
                         select(G2PIntakeFormCluster).where(
-                            G2PIntakeFormCluster.submission_id == change_request.submission_id
+                            G2PIntakeFormCluster.submission_id == sub_id
                         )
                     )
                 ).scalars().all()
@@ -411,11 +413,11 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             ).scalars().all()
             cultivation_cluster_rows.extend(c_rows)
 
-            if change_request.submission_id:
+            if sub_id:
                 ic_rows = (
                     await session.execute(
                         select(G2PIntakeFormCultivationCluster).where(
-                            G2PIntakeFormCultivationCluster.submission_id == change_request.submission_id
+                            G2PIntakeFormCultivationCluster.submission_id == sub_id
                         )
                     )
                 ).scalars().all()
@@ -440,11 +442,11 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             ).scalars().all()
             sowing_rows.extend(s_rows)
 
-            if change_request.submission_id:
+            if sub_id:
                 is_rows = (
                     await session.execute(
                         select(G2PIntakeFormSowing).where(
-                            G2PIntakeFormSowing.submission_id == change_request.submission_id
+                            G2PIntakeFormSowing.submission_id == sub_id
                         )
                     )
                 ).scalars().all()
@@ -471,11 +473,11 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             ).scalars().all()
             infestation_rows.extend(i_rows)
 
-            if change_request.submission_id:
+            if sub_id:
                 ii_rows = (
                     await session.execute(
                         select(G2PIntakeFormInfestation).where(
-                            G2PIntakeFormInfestation.submission_id == change_request.submission_id
+                            G2PIntakeFormInfestation.submission_id == sub_id
                         )
                     )
                 ).scalars().all()

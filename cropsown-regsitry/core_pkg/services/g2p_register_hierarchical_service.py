@@ -365,7 +365,9 @@ class G2PRegisterHierarchicalService(BaseService):
         
         # Try extensions for regular registers
         try:
-            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            import os
+            ext_mod = os.environ.get("REGISTRY_EXTENSION_MODULE", "openg2p_registry_extensions")
+            module = importlib.import_module(f"{ext_mod}.register_domain.models")
             register_class_prefix: str = "G2PRegister"
             implementation_class_name: str = f"{register_class_prefix}{register_mnemonic}"
             implementation_class = getattr(module, implementation_class_name)

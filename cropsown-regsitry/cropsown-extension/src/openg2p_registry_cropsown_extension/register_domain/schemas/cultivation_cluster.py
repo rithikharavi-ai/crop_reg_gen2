@@ -25,10 +25,7 @@ class G2PSchemaCultivationCluster:
     gps_location: Optional[str] = None
     cluster_plan: Optional[float] = None
     cluster_collected_land: Optional[float] = None
-    da_name: Optional[str] = None
-    da_mobile_number: Optional[str] = None
-    supervisor_name: Optional[str] = None
-    supervisor_mobile_number: Optional[str] = None
+
     collected_by_combiner: Optional[float] = None
     land_id: Optional[str] = None
     region: Optional[str] = None
@@ -36,7 +33,6 @@ class G2PSchemaCultivationCluster:
     woreda: Optional[str] = None
     kebele: Optional[str] = None
     sub_kebele: Optional[str] = None
-    land_area: Optional[float] = None
     cluster_name: Optional[str] = None
     agro_ecological_zone: Optional[AgroEcologicalZoneEnum] = None
     season: Optional[str] = None

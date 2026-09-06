@@ -22,7 +22,6 @@ class G2PCluster:
     # ── Plot: each line records the land it was worked on (Gen1 puts
     # land_info_id and its attributes on the line, not the header) ───────────
     land_id: Mapped[str] = mapped_column(String, nullable=True)
-    land_area: Mapped[float] = mapped_column(Numeric, nullable=True)
     cluster_name: Mapped[str] = mapped_column(String, nullable=True)
     agro_ecological_zone: Mapped[AgroEcologicalZoneEnum] = mapped_column(String, nullable=True) # AgroEcologicalZoneEnum
     season: Mapped[str] = mapped_column(String, nullable=True)                # Attribute lookup (CROP_SEASON)
@@ -54,10 +53,7 @@ class G2PCluster:
 
     # Planned figures, and the actuals Gen1 rolls up from the actual lines.
     cluster_plan: Mapped[float] = mapped_column(Numeric, nullable=True)
-    da_name: Mapped[str] = mapped_column(String, nullable=True)
-    da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
-    supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
-    supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
+
     collected_by_combiner: Mapped[float] = mapped_column(Numeric, nullable=True)
 
 
@@ -105,25 +101,26 @@ class G2PIntakeFormCluster(G2PIntakeForm, G2PRegister, G2PGeo, G2PCluster):
         """Return cluster information record_name from domain service implementation."""
         return G2PRegisterDomainServiceCluster().construct_record_name(self.to_dict())
 
-def generate_cluster_id(mapper, connection, target):
-    if not getattr(target, 'cluster_id', None):
-        current_year = datetime.date.today().year
-        prefix = f"CL/{current_year}/"
+# def generate_cluster_id(mapper, connection, target):
+#     if not getattr(target, 'cluster_id', None):
+#         current_year = datetime.date.today().year
+#         prefix = f"CL/{current_year}/"
+# 
+#         table = target.__table__
+#         stmt = select(func.max(table.c.cluster_id)).where(table.c.cluster_id.like(f"{prefix}%"))
+# 
+#         result = connection.execute(stmt).scalar()
+#         if result:
+#             try:
+#                 last_seq = int(result.split("/")[-1])
+#                 new_seq = last_seq + 1
+#             except ValueError:
+#                 new_seq = 1
+#         else:
+#             new_seq = 1
+# 
+#         target.cluster_id = f"{prefix}{new_seq:05d}"
+# 
+# event.listen(G2PRegisterCluster, 'before_insert', generate_cluster_id)
+# event.listen(G2PIntakeFormCluster, 'before_insert', generate_cluster_id)
 
-        table = target.__table__
-        stmt = select(func.max(table.c.cluster_id)).where(table.c.cluster_id.like(f"{prefix}%"))
-
-        result = connection.execute(stmt).scalar()
-        if result:
-            try:
-                last_seq = int(result.split("/")[-1])
-                new_seq = last_seq + 1
-            except ValueError:
-                new_seq = 1
-        else:
-            new_seq = 1
-
-        target.cluster_id = f"{prefix}{new_seq:05d}"
-
-event.listen(G2PRegisterCluster, 'before_insert', generate_cluster_id)
-event.listen(G2PIntakeFormCluster, 'before_insert', generate_cluster_id)
