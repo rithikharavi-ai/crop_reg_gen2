@@ -1272,9 +1272,9 @@ class G2PRegisterService(BaseService):
                             order=field_config.get("order", 999)
                         ))
 
-                # Presigned URL for record image if it exists
+                # Presigned URL for record image if it exists and register definition has_image is enabled
                 record_image_url = None
-                if getattr(result, 'record_image_document_id', None):
+                if g2p_register_definition.has_image and getattr(result, 'record_image_document_id', None):
                     record_image_url = record_image_urls.get(result.record_image_document_id)
 
                 # Create SearchResultData object

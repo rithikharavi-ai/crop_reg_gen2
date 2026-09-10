@@ -90,6 +90,13 @@ class G2PRegisterHistoryService(BaseService):
         for key, value in converted_dict.items():
             if value is None or key not in mapper.columns:
                 continue
+            if isinstance(value, (list, tuple)):
+                # JSON/JSONB/ARRAY columns natively hold lists — don't flatten
+                # them to a comma-string (that is what corrupts cluster_status).
+                if type(mapper.columns[key].type).__name__.upper() in {"JSON", "JSONB", "ARRAY"}:
+                    continue
+                converted_dict[key] = ",".join(str(v) for v in value if v is not None)
+                continue
             column = mapper.columns[key]
             if isinstance(column.type, SQLDate):
                 if isinstance(value, str):

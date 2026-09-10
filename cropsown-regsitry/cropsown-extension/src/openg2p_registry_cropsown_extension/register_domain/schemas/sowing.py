@@ -1,12 +1,28 @@
 from datetime import date
 from typing import Optional, List
 
+from pydantic import field_validator
+
 from openg2p_registry_core.schemas import (
     G2PRegisterBaseSchema,
     G2PRegisterHistorySchema,
     G2PIntakeFormSchemaBase,
 )
 from ..models.enums import SeedClassEnum
+
+
+def _coerce_str_list(value):
+    """Normalise a multi-select value to a list. Accepts a native list, or a
+    comma-joined string (how the value can get stored/passed once the generic
+    list->string coercion in the platform touches a JSONB list column), so
+    register/history/intake validation never fails on a str where a list is
+    expected."""
+    if value is None or isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        parts = [part.strip() for part in value.split(",") if part.strip()]
+        return parts or None
+    return value
 
 
 class G2PSchemaSowing:
@@ -42,6 +58,8 @@ class G2PSchemaSowing:
     da_mobile_number: Optional[str] = None
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
+
+    _coerce_cluster_status = field_validator("cluster_status", mode="before")(_coerce_str_list)
 
 
 class G2PRegisterSchemaSowing(G2PRegisterBaseSchema, G2PSchemaSowing):

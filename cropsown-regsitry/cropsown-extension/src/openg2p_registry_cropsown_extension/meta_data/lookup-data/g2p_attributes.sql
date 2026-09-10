@@ -23,3 +23,8 @@ INSERT INTO "public"."g2p_attributes" ("attribute_id","attribute_code","attribut
 ('ZONE','ZONE','Zone','TRUE'),
 ('WOREDA','WOREDA','Woreda','TRUE'),
 ('KEBELE','KEBELE','Kebele','TRUE');
+
+
+-- Seed Variety catalogue (static snapshot from catalogue-service, release ETH-catalogue-v9)
+INSERT INTO "public"."g2p_attributes" ("attribute_id","attribute_code","attribute_display","is_hierarchical") VALUES
+('SEED_VARIETY','SEED_VARIETY','Seed Variety','FALSE');

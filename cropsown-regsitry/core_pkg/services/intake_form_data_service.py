@@ -1226,6 +1226,9 @@ class G2PIntakeFormDataService(BaseService):
                     "last_approved_by",
                     actor_name or submission.created_by,
                 )
+                await self._populate_inherited_location_and_season(
+                    record_data, intake_class, submission, session
+                )
                 session.add(intake_class(**record_data))
 
             await self._upsert_submission_section_documents(
@@ -1368,34 +1371,6 @@ class G2PIntakeFormDataService(BaseService):
         record_data["last_approved_at"] = submission.approved_at or submission.last_updated_at
         record_data["last_approved_by"] = submission.approved_by or "system"
 
-        if (
-            register_definition.register_purpose == RegisterPurposeEnum.REGISTER.value
-            and register_definition.functional_id_generation_required
-            and not record_data.get("functional_record_id")
-        ):
-            gen_id = None
-            try:
-                from openg2p_registry_cropsown_extension.register_domain.factory import G2PIdGeneratorFactory
-                factory = G2PIdGeneratorFactory.get_component() or G2PIdGeneratorFactory()
-                generator = factory.get_id_generator()
-                if generator:
-                    affix = generator.generate_prefix_suffix(schema_instance, register_definition.register_mnemonic)
-                    seq_num = random.randint(10000, 99999)
-                    gen_id = f"{affix.prefix}{seq_num:05d}{affix.suffix}"
-            except Exception as e:
-                _logger.warning(f"Failed synchronous functional ID generation during intake ingest: {e}")
-
-            if not gen_id:
-                session.add(
-                    G2PFunctionalIdGenerationQueue(
-                        register_id=register_definition.register_id,
-                        internal_record_id=record_data["internal_record_id"],
-                    )
-                )
-                gen_id = f"TEMP-{uuid.uuid4().hex}"
-
-            record_data["functional_record_id"] = gen_id
-
         # Denormalize admin unit display names (region_name, zone_name, woreda_name, kebele_name)
         for field, name_field in (("region", "region_name"), ("zone", "zone_name"), ("woreda", "woreda_name"), ("kebele", "kebele_name")):
             if hasattr(register_class, field) and hasattr(register_class, name_field):
@@ -1439,9 +1414,26 @@ class G2PIntakeFormDataService(BaseService):
         ).scalar_one_or_none()
 
         if not existing and register_definition.register_purpose == RegisterPurposeEnum.REGISTER.value:
-            fayda_id = record_data.get("fayda_fan_id")
-            farmer_id = record_data.get("farmer_id")
+            fayda_id = str(record_data.get("fayda_fan_id") or "").strip()
+            farmer_id = str(record_data.get("farmer_id") or "").strip()
             crop_yr = record_data.get("crop_year") or record_data.get("production_year")
+            prod_sn = (
+                record_data.get("production_season")
+                or record_data.get("season")
+                or record_data.get("cluster_season")
+            )
+
+            _logger.info(
+                "REGISTER INGEST LOOKUP - register_class: %s, fayda_id: '%s', farmer_id: '%s', crop_yr: '%s', prod_sn: '%s', raw_production_season: '%s', raw_season: '%s', raw_cluster_season: '%s'",
+                register_class.__name__,
+                fayda_id,
+                farmer_id,
+                crop_yr,
+                prod_sn,
+                record_data.get("production_season"),
+                record_data.get("season"),
+                record_data.get("cluster_season"),
+            )
 
             query_conditions = []
             if fayda_id and hasattr(register_class, "fayda_fan_id"):
@@ -1451,20 +1443,34 @@ class G2PIntakeFormDataService(BaseService):
 
             if query_conditions:
                 stmt = select(register_class).where(or_(*query_conditions))
-                if hasattr(register_class, "crop_year") and crop_yr:
+                if hasattr(register_class, "crop_year") and crop_yr is not None:
                     stmt = stmt.where(
                         or_(
-                            register_class.crop_year == crop_yr,
+                            register_class.crop_year == str(crop_yr).strip(),
                             register_class.crop_year == None
+                        )
+                    )
+                if hasattr(register_class, "production_season") and prod_sn:
+                    sn_str = str(prod_sn).strip()
+                    clean_sn = sn_str.replace("CROP_SEASON_", "").strip().upper()
+                    stmt = stmt.where(
+                        or_(
+                            register_class.production_season == sn_str,
+                            register_class.production_season == f"CROP_SEASON_{clean_sn}",
+                            register_class.production_season == clean_sn,
+                            register_class.production_season == None
                         )
                     )
                 if hasattr(register_class, "record_status"):
                     stmt = stmt.where(register_class.record_status == RecordStatusEnum.ACTIVE.value)
+                if hasattr(register_class, "created_at"):
+                    stmt = stmt.order_by(register_class.created_at.asc())
 
                 existing_match = (await session.execute(stmt)).scalars().first()
+                _logger.info("REGISTER INGEST MATCH RESULT - existing_match: %s", existing_match.internal_record_id if existing_match else None)
                 if existing_match:
                     existing = existing_match
-                    old_sub_id = record_data["internal_record_id"]
+                    old_sub_id = payload.get("internal_record_id") or record_data["internal_record_id"]
                     record_data["internal_record_id"] = existing.internal_record_id
                     if root_record_id_mapping is not None:
                         root_record_id_mapping[old_sub_id] = existing.internal_record_id
@@ -1473,8 +1479,39 @@ class G2PIntakeFormDataService(BaseService):
             await self._update_existing_record(existing, record_data, register_class)
             row = existing
         else:
+            if (
+                register_definition.register_purpose == RegisterPurposeEnum.REGISTER.value
+                and register_definition.functional_id_generation_required
+                and not record_data.get("functional_record_id")
+            ):
+                gen_id = None
+                try:
+                    from openg2p_registry_cropsown_extension.register_domain.factory import G2PIdGeneratorFactory
+                    factory = G2PIdGeneratorFactory.get_component() or G2PIdGeneratorFactory()
+                    generator = factory.get_id_generator()
+                    if generator:
+                        affix = generator.generate_prefix_suffix(schema_instance, register_definition.register_mnemonic)
+                        seq_num = random.randint(10000, 99999)
+                        gen_id = f"{affix.prefix}{seq_num:05d}{affix.suffix}"
+                except Exception as e:
+                    _logger.warning(f"Failed synchronous functional ID generation during intake ingest: {e}")
+
+                if not gen_id:
+                    session.add(
+                        G2PFunctionalIdGenerationQueue(
+                            register_id=register_definition.register_id,
+                            internal_record_id=record_data["internal_record_id"],
+                        )
+                    )
+                    gen_id = f"TEMP-{uuid.uuid4().hex}"
+
+                record_data["functional_record_id"] = gen_id
+
+            old_sub_id = payload.get("internal_record_id") or record_data.get("internal_record_id")
             row = register_class(**record_data)
             session.add(row)
+            if root_record_id_mapping is not None and register_definition.register_purpose == RegisterPurposeEnum.REGISTER.value:
+                root_record_id_mapping[old_sub_id] = row.internal_record_id
 
         await session.flush()
         return row
@@ -1856,6 +1893,74 @@ class G2PIntakeFormDataService(BaseService):
         record_data["submission_id"] = submission.submission_id
         record_data["application_reference"] = submission.application_reference
 
+    async def _populate_inherited_location_and_season(
+        self,
+        record_data: dict,
+        intake_class,
+        submission: G2PIntakeFormSubmission,
+        session,
+    ) -> None:
+        """Populate location (region, zone, woreda, kebele) and season on child intake form rows if missing."""
+        try:
+            mapper = inspect(intake_class)
+            has_woreda = "woreda" in mapper.columns
+            has_season = "season" in mapper.columns or "cluster_season" in mapper.columns or "production_season" in mapper.columns
+
+            if not (has_woreda or has_season):
+                return
+
+            woreda_val = record_data.get("woreda")
+            season_val = record_data.get("season")
+            cluster_season_val = record_data.get("cluster_season")
+            prod_season_val = record_data.get("production_season")
+
+            if woreda_val and (season_val or cluster_season_val or prod_season_val):
+                return
+
+            from openg2p_registry_cropsown_extension.register_domain.models.crop_sown import G2PIntakeFormCropSown, G2PRegisterCropSown
+
+            parent_header = (
+                await session.execute(
+                    select(G2PIntakeFormCropSown).where(
+                        G2PIntakeFormCropSown.submission_id == submission.submission_id
+                    )
+                )
+            ).scalars().first()
+
+            if not parent_header:
+                fayda_id = record_data.get("fayda_id") or record_data.get("fayda_fan_id") or record_data.get("link_foundational_id")
+                farmer_id = record_data.get("farmer_id")
+                if fayda_id or farmer_id:
+                    query = select(G2PRegisterCropSown)
+                    if fayda_id:
+                        query = query.where(
+                            or_(
+                                G2PRegisterCropSown.fayda_fan_id == str(fayda_id),
+                                G2PRegisterCropSown.link_foundational_id == str(fayda_id),
+                            )
+                        )
+                    elif farmer_id:
+                        query = query.where(G2PRegisterCropSown.farmer_id == str(farmer_id))
+                    parent_header = (await session.execute(query)).scalars().first()
+
+            if parent_header:
+                for loc_attr in ["region", "zone", "woreda", "kebele"]:
+                    if loc_attr in mapper.columns and not record_data.get(loc_attr):
+                        val = getattr(parent_header, loc_attr, None)
+                        if val:
+                            record_data[loc_attr] = val
+
+                parent_sn = getattr(parent_header, "production_season", None) or getattr(parent_header, "season", None)
+                if parent_sn:
+                    if "season" in mapper.columns and not record_data.get("season"):
+                        record_data["season"] = parent_sn
+                    if "cluster_season" in mapper.columns and not record_data.get("cluster_season"):
+                        record_data["cluster_season"] = parent_sn
+                    if "production_season" in mapper.columns and not record_data.get("production_season"):
+                        record_data["production_season"] = parent_sn
+        except Exception as err:
+            _logger.warning("Failed to auto-populate inherited location/season: %s", err)
+
     def _build_record_data(self, schema_data: dict, payload_data: dict, model_class) -> dict:
         mapper = inspect(model_class)
         record_data = {
@@ -1871,7 +1976,7 @@ class G2PIntakeFormDataService(BaseService):
     async def _update_existing_record(self, existing, record_data: dict, model_class, session=None) -> None:
         mapper = inspect(model_class)
         for key, value in record_data.items():
-            if key in {"internal_record_id", "submission_id", "section_id"} or key not in mapper.columns:
+            if key in {"internal_record_id", "submission_id", "section_id", "functional_record_id"} or key not in mapper.columns:
                 continue
             if value is None and getattr(existing, key, None) is not None:
                 continue
@@ -1882,6 +1987,11 @@ class G2PIntakeFormDataService(BaseService):
     def _normalize_model_value(self, value, key: str, mapper):
         if value is None or key not in mapper.columns:
             return value
+        if isinstance(value, (list, tuple)):
+            # JSON/JSONB/ARRAY columns natively hold lists — keep them.
+            if type(mapper.columns[key].type).__name__.upper() in {"JSON", "JSONB", "ARRAY"}:
+                return value
+            return ",".join(str(v) for v in value if v is not None)
         column = mapper.columns[key]
         if isinstance(column.type, SQLDate):
             if isinstance(value, str):
@@ -1922,6 +2032,12 @@ class G2PIntakeFormDataService(BaseService):
         converted = data_dict.copy()
         for key, value in converted.items():
             if value is None or key not in mapper.columns:
+                continue
+            if isinstance(value, (list, tuple)):
+                # JSON/JSONB/ARRAY columns natively hold lists — keep them.
+                if type(mapper.columns[key].type).__name__.upper() in {"JSON", "JSONB", "ARRAY"}:
+                    continue
+                converted[key] = ",".join(str(v) for v in value if v is not None)
                 continue
             column = mapper.columns[key]
             if isinstance(column.type, SQLDate):

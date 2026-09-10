@@ -1,12 +1,15 @@
 from datetime import date
 from typing import Optional
 
+from pydantic import field_validator
+
 from openg2p_registry_core.schemas import (
     G2PRegisterBaseSchema,
     G2PRegisterHistorySchema,
     G2PIntakeFormSchemaBase,
 )
 from ..models.enums import CropMaturityStatusEnum
+from .sowing import _coerce_str_list
 
 
 class G2PSchemaHarvest:
@@ -48,6 +51,8 @@ class G2PSchemaHarvest:
     da_mobile_number: Optional[str] = None
     supervisor_name: Optional[str] = None
     supervisor_mobile_number: Optional[str] = None
+
+    _coerce_cluster_status = field_validator("cluster_status", mode="before")(_coerce_str_list)
 
 
 class G2PRegisterSchemaHarvest(G2PRegisterBaseSchema, G2PSchemaHarvest):

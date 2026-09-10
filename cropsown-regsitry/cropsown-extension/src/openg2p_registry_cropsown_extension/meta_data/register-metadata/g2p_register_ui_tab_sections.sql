@@ -3,13 +3,9 @@ INSERT INTO "public"."g2p_register_ui_tab_sections" ("tab_section_id","register_
 ('91229230-9885-4111-93df-12df479872e3','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_cropsown_tab','cropsown_cropsown_location_section_03',30),
 ('84c152b9-57d9-5a3e-9ec4-9425d6d4ebe1','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_planning_tab','cropsown_planning_details_section_01',10),
 ('ecfd4b34-8cb2-5bca-bf08-e791ce245f88','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_planning_tab','cropsown_cluster_details_section_01',20),
-('582cc6d3-3bcd-417a-86ab-285e9ffbc993','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_planning_tab','cropsown_survey_personnel_section_02',30),
 ('11050292-9286-5495-89fa-fc7203127780','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_cultivation_tab','cropsown_cultivation_details_section_01',10),
 ('d9971b0e-dd36-4992-b5d3-f7b7f15cd52f','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_cultivation_tab','cropsown_cultivation_cluster_details_section_01',20),
-('210c211e-bbad-4cea-bae6-dcd6020ddd4c','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_cultivation_tab','cropsown_survey_personnel_section_02',30),
 ('ca069622-4355-5fe7-8505-719275b6252a','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_sowing_tab','cropsown_sowing_details_section_01',10),
 ('83b9828d-f311-5c48-942e-7f12f389c70f','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_sowing_tab','cropsown_infestation_details_section_01',20),
-('e81fa7c2-9816-4df1-9562-784622401a06','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_sowing_tab','cropsown_survey_personnel_section_02',30),
 ('ff943e7b-1977-545e-97f7-62414d634409','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_production_tab','cropsown_production_details_section_01',10),
-('1fc08d1a-7ea1-5865-b2aa-0a121aff3b33','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_harvest_tab','cropsown_harvest_details_section_01',10),
-('741fa918-b8b4-4205-9c31-4376804d2b7d','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_harvest_tab','cropsown_survey_personnel_section_02',20);
+('1fc08d1a-7ea1-5865-b2aa-0a121aff3b33','6b06a95a-9a6c-5a33-a33d-c1625716c59c','cropsown_harvest_tab','cropsown_harvest_details_section_01',10);

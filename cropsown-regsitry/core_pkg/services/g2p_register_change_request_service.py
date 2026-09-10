@@ -107,11 +107,31 @@ class G2PRegisterChangeRequestService(BaseService):
                 register_section,
                 section_register_definition,
             )
+            records = self._records_from_change_request_payload(change_request_request_payload)
+            if change_request_request_payload.internal_record_id:
+                for r in records:
+                    if isinstance(r, dict) and not r.get("link_internal_record_id"):
+                        r["link_internal_record_id"] = change_request_request_payload.internal_record_id
             await self._validate_domain_attributes(
-                self._records_from_change_request_payload(change_request_request_payload),
+                records,
                 section_register_definition.register_mnemonic,
                 session=session,
             )
+            if change_request_request_payload.change_payload:
+                for i, r in enumerate(records):
+                    if i < len(change_request_request_payload.change_payload):
+                        target = change_request_request_payload.change_payload[i]
+                        if isinstance(target, dict):
+                            target.update(r)
+                        elif hasattr(target, "__dict__"):
+                            for k, v in r.items():
+                                setattr(target, k, v)
+                            if hasattr(target, "__pydantic_extra__"):
+                                if target.__pydantic_extra__ is None:
+                                    target.__pydantic_extra__ = {}
+                                for k, v in r.items():
+                                    if k not in target.__class__.model_fields:
+                                        target.__pydantic_extra__[k] = v
 
             # Extract internal_record_id from change_payload if present
             # Note: For new record creation, internal_record_id may be a new UUID that doesn't exist yet
@@ -875,16 +895,28 @@ class G2PRegisterChangeRequestService(BaseService):
         for key, value in converted_dict.items():
             if value is None or key not in mapper.columns:
                 continue
+            if isinstance(value, (list, tuple)):
+                # JSON/JSONB/ARRAY columns natively hold lists — keep them.
+                if type(mapper.columns[key].type).__name__.upper() in {"JSON", "JSONB", "ARRAY"}:
+                    continue
+                converted_dict[key] = ",".join(str(v) for v in value if v is not None)
+                continue
             column = mapper.columns[key]
             if isinstance(column.type, SQLDate):
                 if isinstance(value, str):
-                    if not value.strip():
+                    val_str = value.strip()
+                    if not val_str:
                         converted_dict[key] = None
                         continue
-                    try:
-                        converted_dict[key] = datetime.strptime(value, '%Y-%m-%d').date()
-                    except (ValueError, TypeError):
-                        pass
+                    parsed = None
+                    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+                        try:
+                            parsed = datetime.strptime(val_str, fmt).date()
+                            break
+                        except (ValueError, TypeError):
+                            continue
+                    if parsed:
+                        converted_dict[key] = parsed
                 elif isinstance(value, datetime):
                     converted_dict[key] = value.date()
             elif isinstance(column.type, Boolean):
@@ -1099,6 +1131,9 @@ class G2PRegisterChangeRequestService(BaseService):
             raise self._invalid_request("change_payload must contain at least one item.")
         for change_payload in change_payloads:
             action = change_payload.edit_action
+            if section_register_purpose == RegisterPurposeEnum.REGISTER.value and action == ChangeActionEnum.ADD.value:
+                action = ChangeActionEnum.UPDATE.value
+                change_payload.edit_action = ChangeActionEnum.UPDATE.value
             if action not in allowed_actions:
                 raise self._invalid_request(f"Action {action} is not allowed for this change request.")
             if section_register_purpose == RegisterPurposeEnum.TABLE.value:
@@ -1269,15 +1304,23 @@ class G2PRegisterChangeRequestService(BaseService):
     def _normalize_model_value(self, value, key: str, mapper):
         if value is None or key not in mapper.columns:
             return value
+        if isinstance(value, (list, tuple)):
+            # JSON/JSONB/ARRAY columns natively hold lists — keep them.
+            if type(mapper.columns[key].type).__name__.upper() in {"JSON", "JSONB", "ARRAY"}:
+                return value
+            return ",".join(str(v) for v in value if v is not None)
         column = mapper.columns[key]
         if isinstance(column.type, SQLDate):
             if isinstance(value, str):
-                if not value.strip():
+                val_str = value.strip()
+                if not val_str:
                     return None
-                try:
-                    return datetime.strptime(value, "%Y-%m-%d").date()
-                except (ValueError, TypeError):
-                    return value
+                for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+                    try:
+                        return datetime.strptime(val_str, fmt).date()
+                    except (ValueError, TypeError):
+                        continue
+                return value
             if isinstance(value, datetime):
                 return value.date()
         return value

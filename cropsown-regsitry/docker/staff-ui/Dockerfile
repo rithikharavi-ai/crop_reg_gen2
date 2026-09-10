@@ -83,3 +83,5 @@ RUN node /tmp/patch-avatar.js
 # Next.js forces HTTPS by default through CSP, which breaks local HTTP loading.
 RUN sed -i 's/upgrade-insecure-requests//g' /app/.next/server/middleware.js
 
+
+
