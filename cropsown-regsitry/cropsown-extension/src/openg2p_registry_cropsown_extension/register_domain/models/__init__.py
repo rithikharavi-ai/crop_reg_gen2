@@ -15,6 +15,5 @@ from .enums import (
     GrowthStageEnum,
     SeverityLevelEnum,
     AgroEcologicalZoneEnum,
-    LifecycleStageEnum,
 )
 from .cultivation_cluster import (G2PRegisterCultivationCluster, G2PRegisterHistoryCultivationCluster, G2PIntakeFormCultivationCluster)

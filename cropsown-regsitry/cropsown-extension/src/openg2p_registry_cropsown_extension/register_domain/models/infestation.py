@@ -27,7 +27,7 @@ class G2PInfestation:
     commodity: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (CROP_COMMODITY)
     growth_stage: Mapped[GrowthStageEnum] = mapped_column(String, nullable=True) # GrowthStageEnum
     cluster_status: Mapped[str] = mapped_column(String, nullable=True)
-    infestation_type: Mapped[list[str]] = mapped_column(JSONB, nullable=True)      # Attribute lookup (INFESTATION_TYPE)
+    infestation_type: Mapped[str] = mapped_column(String, nullable=True)      # Attribute lookup (INFESTATION_TYPE)
     pest_name: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (PEST)
     weed_name: Mapped[str] = mapped_column(String, nullable=True)             # Attribute lookup (WEED)
     disease_name: Mapped[str] = mapped_column(String, nullable=True)          # Attribute lookup (CROP_DISEASE)

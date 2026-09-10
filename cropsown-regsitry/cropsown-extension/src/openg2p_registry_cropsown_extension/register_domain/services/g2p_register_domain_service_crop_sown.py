@@ -2,15 +2,12 @@ import logging
 import re
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from openg2p_registry_core.models import G2PRegisterChangeRequest
 from openg2p_registry_core.services import G2PRegisterDomainService
 
-from .domain_lifecycle_utils import (
-    apply_approval, current_stage, mark_pending, stage_for_section,
-)
 from .domain_validation_utils import as_float, as_int, validation_error
 
 _logger = logging.getLogger("g2p-register-domain-service")
@@ -21,8 +18,19 @@ _MOBILE_NUMBER_PATTERN = re.compile(r"^\+?[0-9][0-9\- ]{5,19}$")
 # Farmer ids are issued by the farmer registry as FR- followed by ten digits.
 _FARMER_ID_PATTERN = re.compile(r"^FR-[0-9]{10}$")
 
+_SECTION_LIFECYCLE_STAGE_MAP = {
+    "cs_planning_details": "PLANNING_APPROVED",
+    "cs_cluster_details": "PLANNING_APPROVED",
+    "cs_cultivation_details": "CULTIVATION_APPROVED",
+    "cs_cultivation_cluster_details": "CULTIVATION_APPROVED",
+    "cs_sowing_details": "SOWING_APPROVED",
+    "cs_production_details": "SOWING_APPROVED",
+    "cs_infestation_details": "SOWING_APPROVED",
+    "cs_harvest_details": "HARVESTING_APPROVED",
+}
+
 class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
-    async def validate_domain_attributes(self, records: list[dict], **kwargs):
+    async def validate_domain_attributes(self, records: list[dict], session=None, **kwargs):
         for record in records:
 
             from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
@@ -30,6 +38,44 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             self._validate_crop_year(record)
             self._validate_farmer_id(record)
             self._validate_fayda_fan_id(record)
+
+            if session:
+                await self._validate_fayda_season_and_year(record, session)
+
+    async def _validate_fayda_season_and_year(self, record: dict, session) -> None:
+        fayda_fan_id = record.get("fayda_fan_id") or record.get("fayda_id")
+        crop_year = record.get("crop_year")
+        prod_season = record.get("production_season")
+
+        if not fayda_fan_id or not str(fayda_fan_id).strip():
+            return
+
+        from sqlalchemy import text
+        query_reg = (
+            "SELECT crop_year, production_season "
+            "FROM g2p_register_crop_sowns "
+            "WHERE fayda_fan_id = :fayda AND record_status = 'ACTIVE'"
+        )
+        params_reg = {"fayda": str(fayda_fan_id).strip()}
+        if crop_year:
+            query_reg += " AND crop_year = :c_year"
+            params_reg["c_year"] = str(crop_year).strip()
+        query_reg += " ORDER BY created_at DESC"
+
+        res_reg = await session.execute(text(query_reg), params_reg)
+        row_reg = res_reg.fetchone()
+        if row_reg:
+            reg_year, reg_season = row_reg[0], row_reg[1]
+            p_clean = str(prod_season or "").replace("CROP_SEASON_", "").strip().upper()
+            r_clean = str(reg_season or "").replace("CROP_SEASON_", "").strip().upper()
+            if p_clean and r_clean and p_clean != r_clean:
+                validation_error(
+                    f"Production Season '{prod_season}' in Farmer Identity does not match registered Crop Season '{reg_season}' for Fayda ID '{fayda_fan_id}'."
+                )
+            if crop_year and reg_year and str(crop_year).strip() != str(reg_year).strip():
+                validation_error(
+                    f"Crop Year '{crop_year}' in Farmer Identity does not match registered Crop Year '{reg_year}' for Fayda ID '{fayda_fan_id}'."
+                )
 
     def _validate_crop_year(self, record: dict) -> None:
         year = as_int(record.get("crop_year"))
@@ -122,8 +168,182 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
         await self._check_unique_farmer_per_year(change_request, session)
         await self._check_crop_area_within_plot(change_request, session)
         await self._check_matching_land_id_across_sections(change_request, session)
+        await self._check_matching_season_across_sections(change_request, session)
+        await self._check_section_dates_validity(change_request, session)
+        await self._recompute_ec_dates_across_sections(change_request, session)
         await self._refresh_admin_names(change_request, session)
         await self._adopt_uploaded_photo(change_request, session)
+
+    async def _check_matching_season_across_sections(
+        self, change_request: G2PRegisterChangeRequest, session: AsyncSession
+    ) -> None:
+        """Check that Season in Planning, Cultivation, Cluster, Sowing, and Production match Farmer Identity production_season."""
+        from sqlalchemy import text
+        from ..models import G2PRegisterCropSown
+
+        rec_id = change_request.internal_record_id
+        if not rec_id:
+            return
+
+        record = await session.get(G2PRegisterCropSown, rec_id)
+        header_season = getattr(record, "production_season", None) if record else None
+        sub_id = getattr(change_request, "submission_id", None)
+        if not header_season and sub_id:
+            res_sub = await session.execute(
+                text("SELECT production_season FROM g2p_intake_form_crop_sowns WHERE submission_id = :sub_id AND production_season IS NOT NULL"),
+                {"sub_id": sub_id}
+            )
+            row_sub = res_sub.fetchone()
+            if row_sub:
+                header_season = row_sub[0]
+
+        if not header_season:
+            return
+
+        header_clean = str(header_season).replace("CROP_SEASON_", "").strip().upper()
+
+        section_tables = [
+            ("g2p_register_plannings", "g2p_intake_form_plannings", "Crop Planning"),
+            ("g2p_register_cultivations", "g2p_intake_form_cultivations", "Cultivation / Land Preparation"),
+            ("g2p_register_cultivation_clusters", "g2p_intake_form_cultivation_clusters", "Cultivation Cluster"),
+            ("g2p_register_clusters", "g2p_intake_form_clusters", "Cluster Information"),
+            ("g2p_register_sowings", "g2p_intake_form_sowings", "Sowing"),
+            ("g2p_register_productions", "g2p_intake_form_productions", "Production"),
+        ]
+
+        for reg_tbl, intake_tbl, section_name in section_tables:
+            season_col = "COALESCE(season, cluster_season)" if "sowing" in reg_tbl else "season"
+            res_reg = await session.execute(
+                text(f"SELECT {season_col} FROM {reg_tbl} WHERE link_internal_record_id = :rec_id AND record_status = 'ACTIVE' AND {season_col} IS NOT NULL"),
+                {"rec_id": rec_id}
+            )
+            for r in res_reg.fetchall():
+                if r[0]:
+                    r_clean = str(r[0]).replace("CROP_SEASON_", "").strip().upper()
+                    if r_clean != header_clean:
+                        validation_error(
+                            f"Season '{r[0]}' in {section_name} does not match the Crop Season '{header_season}' specified in Farmer Identity."
+                        )
+
+            if sub_id:
+                intake_season_col = "COALESCE(season, cluster_season)" if "sowing" in intake_tbl else "season"
+                res_int = await session.execute(
+                    text(f"SELECT {intake_season_col} FROM {intake_tbl} WHERE submission_id = :sub_id AND {intake_season_col} IS NOT NULL"),
+                    {"sub_id": sub_id}
+                )
+                for r in res_int.fetchall():
+                    if r[0]:
+                        r_clean = str(r[0]).replace("CROP_SEASON_", "").strip().upper()
+                        if r_clean != header_clean:
+                            validation_error(
+                                f"Season '{r[0]}' in {section_name} does not match the Crop Season '{header_season}' specified in Farmer Identity."
+                            )
+
+    async def _check_section_dates_validity(
+        self, change_request: G2PRegisterChangeRequest, session: AsyncSession
+    ) -> None:
+        """Enforce date-in-season and stage chronology constraints before approval."""
+        from .g2p_register_domain_service_cultivation import G2PRegisterDomainServiceCultivation
+        from .g2p_register_domain_service_sowing import G2PRegisterDomainServiceSowing
+        from .g2p_register_domain_service_harvest import G2PRegisterDomainServiceHarvest
+
+        rec_id = change_request.internal_record_id
+        if not rec_id:
+            return
+
+        from sqlalchemy import text
+
+        # Load pending CR payloads if available
+        cr_payload_items = []
+        try:
+            from openg2p_registry_core.services.g2p_register_change_request_service import G2PRegisterChangeRequestService
+            cr_service = G2PRegisterChangeRequestService.get_component() or G2PRegisterChangeRequestService()
+            payload_obj = await cr_service._get_change_request_payload(change_request.change_request_id, session)
+            if payload_obj and payload_obj.change_payload:
+                cr_payload_items = payload_obj.change_payload
+        except Exception as e:
+            _logger.debug("Failed loading CR payload in _check_section_dates_validity: %s", e)
+
+        # Cultivation check
+        res_c = await session.execute(
+            text("SELECT land_id, actual_cultivation_date, start_gc, end_gc, season, commodity, actual_crop_area FROM g2p_register_cultivations WHERE link_internal_record_id = :rec_id AND record_status = 'ACTIVE'"),
+            {"rec_id": rec_id}
+        )
+        c_records = [
+            {
+                "link_internal_record_id": rec_id,
+                "land_id": row[0],
+                "actual_cultivation_date": row[1],
+                "start_gc": row[2],
+                "end_gc": row[3],
+                "season": row[4],
+                "commodity": row[5],
+                "actual_crop_area": row[6],
+            }
+            for row in res_c.fetchall()
+        ]
+        if change_request.section_id == 'cropsown_cultivation_details_section_01' and cr_payload_items:
+            for item in cr_payload_items:
+                if isinstance(item, dict):
+                    rec = dict(item)
+                    rec["link_internal_record_id"] = rec_id
+                    c_records.append(rec)
+        if c_records:
+            await G2PRegisterDomainServiceCultivation().validate_domain_attributes(c_records, session=session)
+
+        # Sowing check
+        res_s = await session.execute(
+            text("SELECT land_id, sowing_date, NULL AS start_gc, NULL AS end_gc, COALESCE(season, cluster_season) AS season, commodity, COALESCE(area_sown, cluster_area_sown) AS area_sown FROM g2p_register_sowings WHERE link_internal_record_id = :rec_id AND record_status = 'ACTIVE'"),
+            {"rec_id": rec_id}
+        )
+        s_records = [
+            {
+                "link_internal_record_id": rec_id,
+                "land_id": row[0],
+                "sowing_date": row[1],
+                "start_gc": row[2],
+                "end_gc": row[3],
+                "season": row[4],
+                "commodity": row[5],
+                "area_sown": row[6],
+            }
+            for row in res_s.fetchall()
+        ]
+        if change_request.section_id == 'cropsown_sowing_details_section_01' and cr_payload_items:
+            for item in cr_payload_items:
+                if isinstance(item, dict):
+                    rec = dict(item)
+                    rec["link_internal_record_id"] = rec_id
+                    s_records.append(rec)
+        if s_records:
+            await G2PRegisterDomainServiceSowing().validate_domain_attributes(s_records, session=session)
+
+        # Harvest check
+        res_h = await session.execute(
+            text("SELECT land_id, harvest_date, NULL AS start_gc, NULL AS end_gc, NULL AS season, NULL AS commodity, area_harvested FROM g2p_register_harvests WHERE link_internal_record_id = :rec_id AND record_status = 'ACTIVE'"),
+            {"rec_id": rec_id}
+        )
+        h_records = [
+            {
+                "link_internal_record_id": rec_id,
+                "land_id": row[0],
+                "harvest_date": row[1],
+                "start_gc": row[2],
+                "end_gc": row[3],
+                "season": row[4],
+                "commodity": row[5],
+                "area_harvested": row[6],
+            }
+            for row in res_h.fetchall()
+        ]
+        if change_request.section_id == 'cropsown_harvest_details_section_01' and cr_payload_items:
+            for item in cr_payload_items:
+                if isinstance(item, dict):
+                    rec = dict(item)
+                    rec["link_internal_record_id"] = rec_id
+                    h_records.append(rec)
+        if h_records:
+            await G2PRegisterDomainServiceHarvest().validate_domain_attributes(h_records, session=session)
 
     async def _adopt_uploaded_photo(
         self, change_request: G2PRegisterChangeRequest, session: AsyncSession
@@ -299,7 +519,7 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             for plot, plot_rows in by_plot.items():
                 total = sum(as_float(getattr(r, area_field, None)) or 0.0 for r in plot_rows)
                 plot_area = next(
-                    (as_float(r.land_area) for r in plot_rows if as_float(r.land_area)), None
+                    (as_float(getattr(r, "land_area", None)) for r in plot_rows if getattr(r, "land_area", None)), None
                 )
                 if plot_area and total > plot_area + 1e-6:
                     validation_error(
@@ -314,7 +534,8 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
         from ..models import (
             G2PRegisterPlanning, G2PRegisterCluster, G2PRegisterCultivationCluster, G2PRegisterCultivation,
             G2PIntakeFormPlanning, G2PIntakeFormCluster, G2PIntakeFormCultivationCluster, G2PIntakeFormCultivation,
-            G2PRegisterSowing, G2PIntakeFormSowing, G2PRegisterInfestation, G2PIntakeFormInfestation
+            G2PRegisterSowing, G2PIntakeFormSowing, G2PRegisterInfestation, G2PIntakeFormInfestation,
+            G2PRegisterHarvest, G2PIntakeFormHarvest,
         )
 
         planning_land_ids = set()
@@ -491,10 +712,87 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
                         f"Land ID '{lid}' in Pest/Disease Infestation does not match any Land ID specified in Sowing."
                     )
 
+            harvest_rows = []
+            h_rows = (
+                await session.execute(
+                    select(G2PRegisterHarvest).where(
+                        G2PRegisterHarvest.link_internal_record_id == change_request.internal_record_id,
+                        G2PRegisterHarvest.record_status == "ACTIVE",
+                    )
+                )
+            ).scalars().all()
+            harvest_rows.extend(h_rows)
+
+            if sub_id:
+                ih_rows = (
+                    await session.execute(
+                        select(G2PIntakeFormHarvest).where(
+                            G2PIntakeFormHarvest.submission_id == sub_id
+                        )
+                    )
+                ).scalars().all()
+                harvest_rows.extend(ih_rows)
+
+            valid_harvest_land_ids = sowing_land_ids or planning_land_ids
+            for c in harvest_rows:
+                lid = getattr(c, "land_id", None)
+                if lid and str(lid).strip() and str(lid).strip() not in valid_harvest_land_ids:
+                    validation_error(
+                        f"Land ID '{lid}' in Harvest does not match any Land ID specified in Sowing or Crop Planning."
+                    )
+
+    async def _recompute_ec_dates_across_sections(
+        self, change_request: G2PRegisterChangeRequest, session: AsyncSession
+    ) -> None:
+        """Ensure all GC dates on active and intake records carry their computed EC date."""
+        from .domain_compute_utils import compute_ec_date
+        from ..models import (
+            G2PRegisterPlanning, G2PIntakeFormPlanning,
+            G2PRegisterCultivation, G2PIntakeFormCultivation,
+            G2PRegisterSowing, G2PIntakeFormSowing,
+            G2PRegisterInfestation, G2PIntakeFormInfestation,
+            G2PRegisterHarvest, G2PIntakeFormHarvest,
+        )
+
+        mappings = [
+            (G2PRegisterPlanning, G2PIntakeFormPlanning, "planned_date", "planned_date_ec"),
+            (G2PRegisterCultivation, G2PIntakeFormCultivation, "actual_cultivation_date", "actual_cultivation_date_ec"),
+            (G2PRegisterSowing, G2PIntakeFormSowing, "sowing_date", "sowing_date_ec"),
+            (G2PRegisterInfestation, G2PIntakeFormInfestation, "observation_date", "observation_date_ec"),
+            (G2PRegisterHarvest, G2PIntakeFormHarvest, "harvest_date", "harvest_date_ec"),
+        ]
+
+        sub_id = getattr(change_request, "submission_id", None)
+
+        for reg_model, intake_model, gc_field, ec_field in mappings:
+            rows = (
+                await session.execute(
+                    select(reg_model).where(
+                        or_(
+                            reg_model.link_internal_record_id == change_request.internal_record_id,
+                            reg_model.internal_record_id == change_request.internal_record_id,
+                        ),
+                        reg_model.record_status == "ACTIVE",
+                    )
+                )
+            ).scalars().all()
+
+            if sub_id:
+                i_rows = (
+                    await session.execute(
+                        select(intake_model).where(
+                            intake_model.submission_id == sub_id
+                        )
+                    )
+                ).scalars().all()
+                rows.extend(i_rows)
+
+            for row in rows:
+                compute_ec_date(row, gc_field, ec_field)
+
     # ── Lifecycle ───────────────────────────────────────────────────────────
-    # AWE owns the approval decision; the ladder is ours. `post_approve` runs
-    # once a change request is approved, which is the moment Odoo's
-    # action_approve_wah would have advanced the stage.
+    # AWE owns the approval decision. `post_approve` runs once a change request
+    # is approved and updates the lifecycle_stage on the root record.
 
     async def post_approve(self, change_request: G2PRegisterChangeRequest, session: AsyncSession):
         from ..models import G2PRegisterCropSown
@@ -504,18 +802,21 @@ class G2PRegisterDomainServiceCropSown(G2PRegisterDomainService):
             return
 
         section_mnemonic = await self._resolve_section_mnemonic(change_request, session)
-        stage = stage_for_section(section_mnemonic) or current_stage(record)
-        apply_approval(record, stage)
+        new_stage = _SECTION_LIFECYCLE_STAGE_MAP.get(section_mnemonic)
+        if new_stage:
+            record.lifecycle_stage = new_stage
+        else:
+            _logger.warning(
+                "crop sown %s: section %s approved but has no lifecycle_stage mapping — "
+                "lifecycle_stage unchanged (%s)",
+                record.internal_record_id, section_mnemonic, record.lifecycle_stage,
+            )
+        record.rejection_reason = None
+        await self._recompute_ec_dates_across_sections(change_request, session)
         _logger.info(
-            "crop sown %s: %s approved, lifecycle now %s",
-            record.internal_record_id, stage, record.lifecycle_stage,
+            "crop sown %s: section %s approved, lifecycle_stage -> %s",
+            record.internal_record_id, section_mnemonic, record.lifecycle_stage,
         )
-
-    async def pre_submit_stage(self, record, section_mnemonic: str) -> None:
-        """Mark the stage pending when its section is submitted for approval."""
-        stage = stage_for_section(section_mnemonic)
-        if stage:
-            mark_pending(record, stage)
 
     async def _resolve_section_mnemonic(
         self, change_request: G2PRegisterChangeRequest, session: AsyncSession

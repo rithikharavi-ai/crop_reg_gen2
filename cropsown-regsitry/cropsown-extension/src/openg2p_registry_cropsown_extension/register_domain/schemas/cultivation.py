@@ -20,8 +20,7 @@ class G2PSchemaCultivation:
     end_gc: Optional[date] = None
     end_month: Optional[int] = None
     end_day: Optional[int] = None
-    actual_planted_date_ec: Optional[str] = None
-    actual_fertilizer_sack: Optional[float] = None
+    actual_cultivation_date_ec: Optional[str] = None
     is_crop_changed: Optional[bool] = None
     land_id: Optional[str] = None
     ownership_type: Optional[str] = None
@@ -38,7 +37,7 @@ class G2PSchemaCultivation:
     land_prep_method: Optional[str] = None
     cultivation_type: Optional[str] = None
     cropping_system: Optional[str] = None
-    actual_planted_date: Optional[date] = None
+    actual_cultivation_date: Optional[date] = None
     actual_crop_area: Optional[float] = None
     actual_growth_duration_days: Optional[int] = None
     actual_seed_class: Optional[str] = None

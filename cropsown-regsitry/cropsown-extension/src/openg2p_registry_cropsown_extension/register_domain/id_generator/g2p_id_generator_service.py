@@ -36,8 +36,6 @@ class G2PIdGeneratorService(BaseService, G2PIdGeneratorInterface):
         "MEHER": 1,
         "CROP_SEASON_BELG": 2,
         "BELG": 2,
-        "CROP_SEASON_IRRIGATION": 3,
-        "IRRIGATION": 3,
         "CROP_SEASON_BEGA": 3,
         "BEGA": 3,
     }

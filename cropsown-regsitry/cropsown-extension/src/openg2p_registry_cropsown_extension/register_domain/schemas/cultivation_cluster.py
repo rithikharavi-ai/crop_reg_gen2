@@ -43,6 +43,10 @@ class G2PSchemaCultivationCluster:
     water_source: Optional[str] = None
     water_source_method: Optional[str] = None
     water_source_frequency: Optional[str] = None
+    da_name: Optional[str] = None
+    da_mobile_number: Optional[str] = None
+    supervisor_name: Optional[str] = None
+    supervisor_mobile_number: Optional[str] = None
 
 
 class G2PRegisterSchemaCultivationCluster(G2PRegisterBaseSchema, G2PGeoSchema, G2PSchemaCultivationCluster):

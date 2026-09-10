@@ -12,6 +12,17 @@ _logger = logging.getLogger("g2p-register-domain-service")
 class G2PRegisterDomainServiceInfestation(G2PRegisterDomainService):
     async def validate_domain_attributes(self, records: list[dict], session=None, **kwargs):
         for record in records:
+            inf_type = record.get("infestation_type")
+            if isinstance(inf_type, list):
+                record["infestation_type"] = inf_type[0] if inf_type else None
+            elif isinstance(inf_type, str) and (inf_type.startswith("[") or inf_type.startswith('["')):
+                import json
+                try:
+                    parsed = json.loads(inf_type)
+                    if isinstance(parsed, list):
+                        record["infestation_type"] = parsed[0] if parsed else None
+                except Exception:
+                    record["infestation_type"] = inf_type.replace("[", "").replace("]", "").replace('"', "").replace("'", "").strip()
 
             from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
             validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")

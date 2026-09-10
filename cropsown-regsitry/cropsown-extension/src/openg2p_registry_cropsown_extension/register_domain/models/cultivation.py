@@ -35,7 +35,7 @@ class G2PCultivation:
     land_prep_method: Mapped[str] = mapped_column(String, nullable=True)      # Attribute lookup (LAND_PREP_METHOD)
     cultivation_type: Mapped[str] = mapped_column(String, nullable=True)      # Attribute lookup (MACHINERY)
     cropping_system: Mapped[CroppingSystemEnum] = mapped_column(String, nullable=True) # CroppingSystemEnum
-    actual_planted_date: Mapped[str] = mapped_column(Date, nullable=True)
+    actual_cultivation_date: Mapped[date] = mapped_column(Date, nullable=True)
     actual_crop_area: Mapped[float] = mapped_column(Numeric, nullable=True)
     actual_growth_duration_days: Mapped[int] = mapped_column(Integer, nullable=True)
     actual_seed_class: Mapped[SeedClassEnum] = mapped_column(String, nullable=True) # SeedClassEnum
@@ -60,8 +60,7 @@ class G2PCultivation:
     end_gc: Mapped[date] = mapped_column(Date, nullable=True)
     end_month: Mapped[int] = mapped_column(Integer, nullable=True)
     end_day: Mapped[int] = mapped_column(Integer, nullable=True)
-    actual_planted_date_ec: Mapped[str] = mapped_column(String, nullable=True)
-    actual_fertilizer_sack: Mapped[float] = mapped_column(Numeric, nullable=True)
+    actual_cultivation_date_ec: Mapped[str] = mapped_column(String, nullable=True)
     is_crop_changed: Mapped[bool] = mapped_column(Boolean, nullable=True)
 
 

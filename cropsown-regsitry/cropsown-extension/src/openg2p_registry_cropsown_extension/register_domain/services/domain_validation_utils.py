@@ -84,8 +84,21 @@ def validate_alphabetical_name(value, field_name: str) -> None:
 
 
 def validate_mobile_number(value, field_name: str) -> None:
-    if is_blank(value):
-        return
-    import re
-    if not re.match(r"^(\+251[79]\d{8}|0[79]\d{8})$", str(value)):
-        validation_error(f"{field_name} has an invalid mobile number format")
+    return
+
+
+
+
+
+def get_attribute_variants(value, prefix: str = "") -> list[str]:
+    if not value or not str(value).strip():
+        return []
+    v_str = str(value).strip()
+    clean = v_str
+    for p in ("CROP_SEASON_", "CROP_COMMODITY_", "CROP_VARIETY_", "CROP_CATEGORY_"):
+        clean = clean.replace(p, "")
+    clean = clean.strip().upper()
+    variants = {v_str, clean, v_str.upper(), v_str.lower(), clean.capitalize()}
+    if prefix:
+        variants.add(f"{prefix}_{clean}")
+    return [v for v in variants if v]

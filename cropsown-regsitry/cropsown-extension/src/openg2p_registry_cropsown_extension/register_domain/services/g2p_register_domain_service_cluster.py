@@ -15,10 +15,31 @@ class G2PRegisterDomainServiceCluster(G2PRegisterDomainService):
 
             from .domain_validation_utils import validate_alphabetical_name, validate_mobile_number
             validate_alphabetical_name(record.get("farmer_name"), "Farmer Name")
-            # validate_alphabetical_name(record.get("da_name"), "DA Name")
-            # validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
-            # validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
-            # validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
+            validate_alphabetical_name(record.get("da_name"), "DA Name")
+            validate_alphabetical_name(record.get("supervisor_name"), "Supervisor Name")
+            validate_mobile_number(record.get("da_mobile_number"), "DA Mobile Number")
+            validate_mobile_number(record.get("supervisor_mobile_number"), "Supervisor Mobile Number")
+            prod_season = record.get("production_season")
+            submission_id = record.get("submission_id")
+            if session and submission_id and not prod_season:
+                from sqlalchemy import text
+                res_hdr = await session.execute(
+                    text("SELECT production_season FROM g2p_intake_form_crop_sowns WHERE submission_id = :sub_id"),
+                    {"sub_id": submission_id}
+                )
+                row_hdr = res_hdr.fetchone()
+                if row_hdr:
+                    prod_season = row_hdr[0]
+
+            season = record.get("season")
+            if prod_season and season:
+                p_clean = str(prod_season).replace("CROP_SEASON_", "").strip().upper()
+                s_clean = str(season).replace("CROP_SEASON_", "").strip().upper()
+                if p_clean != s_clean:
+                    validation_error(
+                        f"Season '{season}' in Cluster Information Details does not match the Production Season '{prod_season}' specified in Farmer Identity."
+                    )
+
             compute_season_parts(record)
             compute_cluster_area(record)
             self._validate_cluster_area(record)

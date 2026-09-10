@@ -66,38 +66,4 @@ class AgroEcologicalZoneEnum(StrEnum):
     BEREHA = "BEREHA"
 
 
-class LifecycleStageEnum(StrEnum):
-    """The Odoo lifecycle ladder, in order."""
-    DRAFT = "DRAFT"
-    PENDING_PLANNING = "PENDING_PLANNING"
-    PLANNING_REJECTED = "PLANNING_REJECTED"
-    PLANNING_APPROVED = "PLANNING_APPROVED"
-    PENDING_CULTIVATION = "PENDING_CULTIVATION"
-    CULTIVATION_REJECTED = "CULTIVATION_REJECTED"
-    CULTIVATION_APPROVED = "CULTIVATION_APPROVED"
-    PENDING_SOWING = "PENDING_SOWING"
-    SOWING_REJECTED = "SOWING_REJECTED"
-    SOWING_APPROVED = "SOWING_APPROVED"
-    PENDING_HARVESTING = "PENDING_HARVESTING"
-    HARVESTING_REJECTED = "HARVESTING_REJECTED"
-    HARVESTING_APPROVED = "HARVESTING_APPROVED"
 
-
-class StageStateEnum(StrEnum):
-    """Per-stage approval state (Odoo: planning_state / cultivation_state /
-    sowing_state / harvesting_state)."""
-    DRAFT = "DRAFT"
-    PENDING_WAH = "PENDING_WAH"
-    REJECTED = "REJECTED"
-    UPDATE_REQUESTED = "UPDATE_REQUESTED"
-    APPROVED = "APPROVED"
-
-
-class RejectedAtStageEnum(StrEnum):
-    SMS = "SMS"
-    WAH = "WAH"
-
-
-class EditStateEnum(StrEnum):
-    OPEN = "OPEN"
-    LOCKED = "LOCKED"

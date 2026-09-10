@@ -56,6 +56,12 @@ class G2PCluster:
 
     collected_by_combiner: Mapped[float] = mapped_column(Numeric, nullable=True)
 
+    # ── Survey Personnel ────────────────────────────────────────────────────────
+    da_name: Mapped[str] = mapped_column(String, nullable=True)
+    da_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
+    supervisor_name: Mapped[str] = mapped_column(String, nullable=True)
+    supervisor_mobile_number: Mapped[str] = mapped_column(String, nullable=True)
+
 
 # All Register classes should have the prefix G2PRegister
 class G2PRegisterCluster(G2PRegister, G2PGeo, G2PCluster):

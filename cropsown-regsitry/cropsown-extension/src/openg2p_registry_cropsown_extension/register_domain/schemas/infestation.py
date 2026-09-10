@@ -19,7 +19,7 @@ class G2PSchemaInfestation:
     commodity: Optional[str] = None
     growth_stage: Optional[GrowthStageEnum] = None
     cluster_status: Optional[str] = None
-    infestation_type: Optional[List[str]] = None
+    infestation_type: Optional[str] = None
     pest_name: Optional[str] = None
     weed_name: Optional[str] = None
     disease_name: Optional[str] = None

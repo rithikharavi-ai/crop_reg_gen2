@@ -7,7 +7,6 @@ from openg2p_registry_core.schemas import (
     G2PGeoHistorySchema,
     G2PIntakeFormSchemaBase,
 )
-from ..models.enums import LifecycleStageEnum
 import re
 from pydantic import field_validator
 
@@ -16,19 +15,14 @@ from pydantic import field_validator
 
 class G2PSchemaCropSown:
 
-    planning_state: Optional[str] = None
-    cultivation_state: Optional[str] = None
-    sowing_state: Optional[str] = None
-    harvesting_state: Optional[str] = None
     rejection_reason: Optional[str] = None
-    rejected_at_stage: Optional[str] = None
-    edit_state: Optional[str] = None
     edit_count: Optional[int] = None
     # Farmer (identified, held in the farmer registry)
     farmer_uuid: Optional[str] = None
     farmer_id: Optional[str] = None
     fayda_fan_id: Optional[str] = None
     farmer_name: Optional[str] = None
+    land_id: Optional[str] = None
 
     # Address — admin hierarchy from the master-data catalog
     region: Optional[str] = None
@@ -46,7 +40,7 @@ class G2PSchemaCropSown:
     status: Optional[str] = None
     crop_year: Optional[str] = None
     production_season: Optional[str] = None
-    lifecycle_stage: Optional[LifecycleStageEnum] = None
+    lifecycle_stage: Optional[str] = None
 
 
 class G2PRegisterSchemaCropSown(G2PRegisterBaseSchema, G2PGeoSchema, G2PSchemaCropSown):
